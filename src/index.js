@@ -1,11 +1,34 @@
-import { DeliverooApi } from "@unitn-asa/deliveroo-js-client";
-import { agentLoop } from "./demo-agent.js";
+import { agentLoop } from "./agent-loop.js";
 
-var parameters = {
-  host: process.env.HOST,
-  token: process.env.TOKEN
+/**Initialization function to collect environment variables
+ * @returns {Object} options
+ */
+function initializeOptions() {
+  // Initialize options from environment variables
+  let options = {
+    host: process.env.HOST,
+    token: process.env.TOKEN,
+  };
+
+  // Check that all options are initialized
+  Object.keys(options).forEach(key => {
+    if (!options[key]) {
+      throw new Error(`Missing required parameter: ${key}`);
+    }
+  });
+
+  return options;
 }
 
-const client = new DeliverooApi(parameters.host, parameters.token);
+/**Main function */
+async function main() {
+  // Collect options
+  const options = initializeOptions();
 
-agentLoop(client);
+  // Start agent
+  agentLoop(options.host, options.token)
+}
+
+
+main()
+.catch( (err) => {console.error(err.message)})
