@@ -1,10 +1,11 @@
 import { DeliverooApi } from "@unitn-asa/deliveroo-js-client";
+import { agentLoop } from "./demo-agent.js";
 
 var parameters = {
   host: process.env.HOST,
   token: process.env.TOKEN
 }
 
-console.log(parameters)
+const client = new DeliverooApi(parameters.host, parameters.token);
 
-// Script to try the agent
+agentLoop(client);
