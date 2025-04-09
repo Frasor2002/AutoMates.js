@@ -1,9 +1,54 @@
 import { DeliverooApi } from "@unitn-asa/deliveroo-js-client";
-import { initAgentBelief, 
+import { me,
+        initAgentBelief, 
         handleAgentSensing,
         handleParcelSensing,
-        getCurrentAgents,
-        getCurrentParcels} from "./belief-revision.js"
+        getCurrentParcels,
+        chooseParcel} from "./belief-revision.js"
+
+
+/**
+ * Function to make a random move
+ * @param {*} client 
+ * @param {*} me 
+ */
+async function randomMove(client, me) {
+  const directions = ['up', 'down', 'left', 'right'];
+  const randomDirection = directions[Math.floor(Math.random() * directions.length)];
+  
+  var m = new Promise(res => client.onYou(m => m.x % 1 != 0 || m.y % 1 != 0 ? null : res()));
+  await client.emitMove(randomDirection);
+  await m;
+}
+
+
+
+/**
+ * Function to blindly move toward a target
+ * @param {*} client 
+ * @param {*} me 
+ * @param {*} x 
+ * @param {*} y 
+ */
+async function blindMovement(client, me, x, y){
+  while ( me.x != x || me.y != y ) {
+      var m = new Promise( res => client.onYou( m => m.x % 1 != 0 || m.y % 1 != 0 ? null : res() ) );
+      
+      if ( me.x < x )
+          await client.emitMove('right');
+      else if ( me.x > x )
+          await client.emitMove('left');
+      
+      if ( me.y < y )
+          await client.emitMove('up');
+      else if ( me.y > y )
+          await client.emitMove('down');
+
+      await m;
+  }
+}
+
+
 
 /**
  * Agent loop function to run the agent
@@ -14,58 +59,31 @@ async function agentLoop (host, token) {
   const client = new DeliverooApi(host, token);
   
   // Initialization
-  initAgentBelief(client);
+  await initAgentBelief(client);
   client.onAgentsSensing(handleAgentSensing);
   client.onParcelsSensing(handleParcelSensing);
 
-  // Movement logic
-  var previous = 'right';
-
-  // Start infinite movement
-  while ( true ) {
-    // To move slower
-    await new Promise(res=>setTimeout(res,1000));
+  while(true){
+    await new Promise(res=>setTimeout(res,500));
 
     // Get beliefset of parcels and agents
     const parcel = getCurrentParcels();
-    const agents = getCurrentAgents();
-    console.log('Agent remembers parcels: ', parcel)
-    console.log('Agent remembers agents: ',agents)
+    console.log('Agent remembers parcels:', parcel);
 
-    // Try to pickup/putdown parcel on current tile
-    await client.emitPutdown();
-    await client.emitPickup();
-
-    // Keep track of tried directions
-    let tried = [];
-
-    // Untile we haven't tried all directions try them all
-    while ( tried.length < 4 ) {
-      // Create variable for next backward move 
-      let current = { up: 'down', right: 'left', down: 'up', left: 'right' }[previous];
-
-      // Before going back try other directions
-      if ( tried.length < 3 ) {
-        current = [ 'up', 'right', 'down', 'left' ].filter( d => d != current )[ Math.floor(Math.random()*3) ];
-      }
-
-      // If we haven't moved in that direction move there
-      if ( ! tried.includes(current) ) {
-        if ( await client.emitMove( current ) ) {
-          console.log( 'Agent has moved ', current );
-          previous = current;
-          break; // Move successfull, start over
-        }
-        tried.push( current );
-      }
-    }
-    // If we moved in every direction we are stuck and we can only retry
-    if ( tried.length == 4 ) {
-      console.log( 'Agent is now stuck!' );
-      await new Promise(res=>setTimeout(res,1000));
+    
+    if(parcel.length > 0){ // If parcel is found
+      let p = chooseParcel(parcel);
+      console.log("I need to reach parcel", p.x, p.y)
+      // Choose parcel
+      await blindMovement(client, me, p.x, p.y);
+      await client.emitPickup();
+      console.log("Picked up parcel", p.id);
+    } else {
+      console.log("No parcel sensed so we move at random")
+      await randomMove(client, me)
     }
   }
 }
-
+  
 
 export {agentLoop};

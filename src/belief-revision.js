@@ -7,12 +7,10 @@ const agentBelief = new Map();
 /** @type {Map<string,[{id,x,y,carriedBy,reward}]} Map parcelId to array of parcel states*/
 const parcelBelief = new Map();
 
-// Agents Observation Distance
-let AOD;
 // Parcels Observation Distance
-let POD;
+let POD = 0;
 // Reference to this agent
-let me;
+const me = {};
 
 /**
  * Compute Manhattan distance between positions
@@ -20,19 +18,27 @@ let me;
  * @param {Object} p2 - Second position
  * @returns {number} Manhattan distance 
  */
-function manhDistance(p1, p2){ Math.abs(p1.x - p2.x) + Math.abs(p1.y - p2.y); }
+function manhDistance(p1, p2){ return Math.abs(p1.x - p2.x) + Math.abs(p1.y - p2.y); }
 
 
 /**
  * Initialize agent beliefs
  * @param {Object} client API client object
  */
-function initAgentBelief(client) {
+async function initAgentBelief(client) {
   client.onConfig(config =>{
-    AOD = config.AGENTS_OBSERVATION_DISTANCE;
     POD = config.PARCELS_OBSERVATION_DISTANCE;
   });
-  client.onYou(m => me = m);
+  await new Promise( res => {
+    client.onYou( ( {id, name, x, y, score} ) => {
+        me.id = id
+        me.name = name
+        me.x = x
+        me.y = y
+        me.score = score
+        res()
+    })
+  });
 }
 
 
@@ -154,11 +160,53 @@ function getCurrentParcels() {
     .filter(state => state !== 'lost');
 }
 
+/**
+ * Given an the beliefstate of parcel weight them based on:
+ * - Distance
+ * - Reward
+ * - If its lost or not
+ * @param {*} parcel 
+ */
+function scoreParcel(parcel) {
+  // Calculate distance to parcel
+  const distance = Math.abs(me.x - parcel.x) + Math.abs(me.y - parcel.y);
+    
+  // If parcel is being carried by someone else, return lowest possible score
+  if (parcel.carriedBy && parcel.carriedBy !== me.id) return -Infinity;
+  
+  // Base score is the reward value
+  let score = parcel.reward;
+  
+  // Apply distance penalty (the farther away, the lower the score)
+  // We use inverse square law to strongly prefer closer parcels
+  score /= (distance + 1) ** 2;  // +1 to avoid division by zero
+  
+  // If parcel is being carried by me, give it a small boost
+  if (parcel.carriedBy === me.id) {
+      score *= 1.2;
+  }
+  
+  return score;
+}
+
+/**
+ * Function to choose best parcel to go for
+ * @param {*} parcels a list of parcel states
+ * @returns a single parcel to go for according to the score
+ */
+function chooseParcel(parcels){
+  return parcels.reduce((best, current) => 
+    scoreParcel(current) > scoreParcel(best) ? current : best
+);
+}
+
 
 export {
+  me,
   initAgentBelief,
   handleAgentSensing,
   handleParcelSensing,
   getCurrentAgents,
-  getCurrentParcels
+  getCurrentParcels,
+  chooseParcel,
 };
