@@ -8,7 +8,7 @@
     "start": "node src/index.js",
     "dev": "node -r dotenv/config src/index.js"
   },
-  "author": "Andrea Richichi, Francesco Sorrentino",
+  "author": "Francesco Sorrentino",
   "license": "MIT",
   "dependencies": {
     "@unitn-asa/deliveroo-js-client": "^2.0.2",

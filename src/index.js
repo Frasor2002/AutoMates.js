@@ -1,4 +1,4 @@
-import { agentLoop } from "./agent-loop.js";
+import { agentLoop } from "./agent_loop.js";
 
 /**Initialization function to collect environment variables
  * @returns {Object} options

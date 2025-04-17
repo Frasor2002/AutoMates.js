@@ -1,0 +1,148 @@
+//Implementation of the AStar search algorithm
+
+/**
+ * Compute Manhattan distance between positions
+ * @param {Object} p1 - First position
+ * @param {Object} p2 - Second position
+ * @returns {number} Manhattan distance 
+ */
+function manhDistance(p1, p2){ return Math.abs(p1.x - p2.x) + Math.abs(p1.y - p2.y); }
+
+
+
+
+/**Function to check if a position has an obstacle
+ * @param {Object} pos 
+ * @param {Array} map 
+ * @returns 
+ */
+function isWalkable(pos, map) {
+  // First check if position is within bounds
+  if (pos.x < 0 || pos.y < 0 || pos.x >= map.length || pos.y >= map[0].length) {
+    return false;
+  }
+  
+  //console.log(pos)
+  return map[pos.x][pos.y] !== 0;
+}
+
+
+/**
+ * Function to create a path when goal is reached
+ * @param {Object} cameFrom 
+ * @param {String} currentKey 
+ * @param {String} startKey 
+ * @returns 
+ */
+function reconstructPath(cameFrom, currentKey, startKey) {
+  const path = [];
+  let current = currentKey;
+
+  while (current !== startKey) {
+      const node = cameFrom.get(current);
+      if (!node) return []; // if we hit a missing node, return empty
+      path.unshift(node.action);
+      current = node.key;
+  }
+
+  return path;
+}
+
+
+
+/**
+ * Function to compute A* Search and return the path
+ * @param {Object} start 
+ * @param {Object} goal 
+ * @param {Array} map 
+ */
+function aStar(start, goal, map){
+  //console.log(isWalkable(goal,map))
+
+  // Define function to get heuristic
+  const heuristic = manhDistance;
+
+  // Declare directions the agent can potentially move to
+  const directions = [
+      { dx: 0, dy: -1, action: "down" },
+      { dx: 0, dy: 1, action: "up" },
+      { dx: -1, dy: 0, action: "left" },
+      { dx: 1, dy: 0, action: "right" }
+  ];
+
+  // Initiliaze necessary Set
+  const openSet = new Set();
+  const startKey = `${start.x},${start.y}`;
+  openSet.add(startKey);
+
+  // A mapping that gives the previos node on the shortest path from start
+  const cameFrom = new Map();
+
+  // A mapping that gives the actual minimal cost to reach that node from the start
+  const gScore = new Map();
+  gScore.set(startKey, 0);
+
+  // Given a node the sum of gScore and heuristic
+  const fScore = new Map();
+  fScore.set(startKey, gScore.get(startKey) + heuristic(start, goal));
+
+  // While set of nodes to expand not empty
+  while (openSet.size > 0) {
+    // Choose node in set with lowest score
+    let currentKey = null;
+    let lowestFScore = Infinity;
+    for (const key of openSet) {
+      const score = fScore.get(key);
+      if (score < lowestFScore) {
+        lowestFScore = score;
+        currentKey = key;
+      }
+    }
+
+    // Get current node position
+    const [currentX, currentY] = currentKey.split(',').map(Number);
+    const currentPos = { x: currentX, y: currentY };
+
+    // When goal is reached reconstruct the path
+    if (currentPos.x === goal.x && currentPos.y === goal.y) {
+        return reconstructPath(cameFrom, currentKey, startKey);
+    }
+
+    // Remove current node from set
+    openSet.delete(currentKey);
+
+    // Expand the node checking neighbors
+    for (const dir of directions) {
+      const neighborX = currentX + dir.dx;
+      const neighborY = currentY + dir.dy;
+      const neighborKey = `${neighborX},${neighborY}`;
+
+
+      // Skip if not walkable
+      if (!isWalkable({x:neighborX, y:neighborY}, map)) {
+        continue;
+      }
+
+      // Compute gScore for neighbor
+      const tentativeGScore = gScore.get(currentKey) + 1;
+
+      // If path is better than last neighbor we expand
+      if (tentativeGScore < (gScore.get(neighborKey) || Infinity)) {
+        cameFrom.set(neighborKey, { key: currentKey, action: dir.action });
+        gScore.set(neighborKey, tentativeGScore);
+        fScore.set(neighborKey, tentativeGScore + heuristic({ x: neighborX, y: neighborY }, goal));
+
+        if (!openSet.has(neighborKey)) {
+          openSet.add(neighborKey);
+        }
+      }
+    }
+  }
+
+  // If we explored everything but did not reach the goal
+  console.log("Empty return")
+  return [];
+}
+
+
+export {manhDistance, aStar};
