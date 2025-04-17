@@ -221,7 +221,7 @@ function optionGeneration(intent_rev){
   }
 
   // If I do not have any parcel in my beliefSet we add an idle option
-  options.push({type: "idle", score: -Infinity});
+  options.push({type: "idle", priority: -Infinity});
 
 
 
