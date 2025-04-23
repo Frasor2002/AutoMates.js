@@ -1,20 +1,16 @@
 import { Intention } from "./intention.js";
-import { me,
-  getCurrentParcels
- } from "../belief/belief_revision.js";
+import { myBelief } from "../belief/sensing.js";
+import { quickSort } from "./utils.js";
+
 
 class IntentionRevision {
-  #client;
-  #intention_queue = new Array();
+  // The datastructure to contain all intentions to perform
+  #intentionQueue = new Array();
 
-
-  constructor( client ) {
-    this.#client = client;
-  }
 
   /**Intention_queue getter */
-  get intention_queue () {
-      return this.#intention_queue;
+  get intentionQueue () {
+      return this.#intentionQueue;
   }
 
 
@@ -23,10 +19,12 @@ class IntentionRevision {
    * @param {Object} intention 
    */
   isIntentionValid(intention) {
+    // Get parcels in belief
+    const parcels = myBelief.getParcels();
+
     // For pickup intentions, check if parcel still exists 
     // and isn't carried by someone else
     if (intention.predicate.type === "pickUp") {
-      const parcels = getCurrentParcels();
       const targetParcel = parcels.find(p => p.id === intention.predicate.target.id);
       //console.log("PID CHekc", targetParcel !== undefined && !targetParcel.carriedBy)
       return targetParcel !== undefined && !targetParcel.carriedBy;
@@ -34,13 +32,14 @@ class IntentionRevision {
 
     // For delivery intentions, check if we're still carrying a parcel
     if (intention.predicate.type === "deliver") {
-      const parcels = getCurrentParcels();
-      return parcels.filter(p => p.carriedBy === me.id).length > 0;
+      return parcels.filter(p => p.carriedBy === myBelief.me.id).length > 0;
     }
 
     // Otherwise we idle
     return true;
   }
+
+
 
   /**
    * Loop for intention revision
@@ -48,15 +47,15 @@ class IntentionRevision {
   async loop ( ) {
     while ( true ) {
       // If queue not empty
-      if ( this.intention_queue.length > 0 ) {
-        console.log( 'intentionRevision.loop', this.intention_queue.map(i=>i.predicate) );
+      if ( this.#intentionQueue.length > 0 ) {
+        console.log( 'intentionRevision.loop', this.#intentionQueue.map(i=>i.predicate) );
         
         // Get the current best intention
-        const intention = this.intention_queue[0];
+        const intention = this.#intentionQueue[0];
               
         // Check if this intention can be done
         if (!this.isIntentionValid(intention)) { // if intention is not valid
-          this.intention_queue.shift(); // Delete intention and go on
+          this.#intentionQueue.shift(); // Delete intention and go on
           continue;
         }
 
@@ -68,7 +67,7 @@ class IntentionRevision {
         });
 
         // Delete intention
-        this.intention_queue.shift();
+        this.#intentionQueue.shift();
       }
       // Postpone next iteration
       await new Promise( res => setImmediate( res ) );
@@ -86,50 +85,36 @@ class IntentionRevision {
    * @param {*} predicate 
    */
   async push ( predicate ) {
-
-    // Check if already queued
-    for(const i of this.#intention_queue){
-      // Already have an idle in queue
-      if(i.predicate.type === "idle" && 
-        JSON.stringify(i.predicate) === JSON.stringify(predicate)){
-          return;
-      }
-      
-      if(i.predicate.type === predicate.type && 
-        JSON.stringify(i.predicate.target) === JSON.stringify(predicate.target)
-      ) {
-        return
-      }
-    }
     console.log( 'To push. Received', predicate );
 
-    
+    // Get the highest priority intent now
+    const last = this.#intentionQueue[0];
+    // Check if we just modify an intent or not
+    let found = false;
 
-    // Create a new intention given a predicate
-    const intention = new Intention( this, predicate, this.#client);
-
-    // If the queue is empty, just add the new intention
-    if (this.intention_queue.length === 0) {
-      this.intention_queue.push(intention);
-      return;
-    }
-    
-    // Find position to insert based on priority score (higher first)
-    let insertIndex = 0;
-    while (insertIndex < this.intention_queue.length) {
-      if (predicate.priority > this.intention_queue[insertIndex].predicate.priority) {
-        break; // We found the index where to insert intention
+    // Check if the intention is already present
+    for(let i = 0; i < this.#intentionQueue.length; i++){
+      // The intent is found within the queue
+      if(this.#intentionQueue[i].predicate.type == predicate.type && 
+        JSON.stringify(this.#intentionQueue[i].predicate.target) == JSON.stringify(predicate.target)
+      ) {
+        this.#intentionQueue[i].predicate.priority = predicate.priority;
+        found = true;
       }
-      insertIndex++;
     }
 
-    // Insert at the correct position
-    this.intention_queue.splice(insertIndex, 0, intention);
+    // If it wasn't already in the queue, just add it
+    if(!found){
+      // Create a new intention given a predicate
+      const intention = new Intention( this, predicate);
+      this.#intentionQueue.push(intention);
+    }
 
-    // If we inserted at position 0 and there was a previous intention,
-    // we might want to abort the current one if it's no longer optimal
-    if (insertIndex === 0 && this.intention_queue.length > 1) {
-      const last = this.intention_queue[ this.intention_queue.length - 1 ];
+    // Sort the list
+    this.#intentionQueue = quickSort(this.#intentionQueue);
+    
+    // If a better intent is found we have to stop last and start the new one
+    if (last && JSON.stringify(last.predicate) != JSON.stringify(this.#intentionQueue[0].predicate)) {
       last.stop();
     }
   }

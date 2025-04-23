@@ -1,6 +1,7 @@
-import { me, map } from "../belief/belief_revision.js";
-import { manhDistance, aStar } from "../belief/astar.js";
+import { myBelief } from "../belief/sensing.js";
+import { aStar } from "../intent/astar.js";
 import { Intention } from "../intent/intention.js";
+import { client } from "../connection/connection.js";
 
 // Library where plans are put inside
 const planLib = [];
@@ -41,8 +42,8 @@ class Plan {
   }
 
   /**Add subintention to subintentions list and then achieve them*/
-  async subIntention ( predicate, client ) {
-    const sub_intention = new Intention( this, predicate, client );
+  async subIntention ( predicate ) {
+    const sub_intention = new Intention( this, predicate );
     this.#sub_intentions.push( sub_intention );
     return sub_intention.achieve();
   }
@@ -63,10 +64,10 @@ class PickUp extends Plan {
   /**
    * Execute the plan
    */
-  async execute ( predicate, client ) {
+  async execute ( predicate ) {
     if ( this.stopped ) throw ['stopped']; // if stopped then quit
     await this.subIntention( {type: "moveTo", target: {x: predicate.target.x, 
-      y: predicate.target.y}}, client );
+      y: predicate.target.y}} );
     if ( this.stopped ) throw ['stopped']; // if stopped then quit
     await client.emitPickup();
     if ( this.stopped ) throw ['stopped']; // if stopped then quit
@@ -88,11 +89,10 @@ class MoveTo extends Plan {
   /**
    * Execute the plan
    */
-  async execute ( predicate, client ) {
+  async execute ( predicate ) {
     if ( this.stopped ) throw ['stopped']; // if stopped then quit
-    const path = aStar(me, predicate.target, map);
+    const path = aStar(myBelief.me, predicate.target, myBelief.map);
     if ( this.stopped ) throw ['stopped']; // if stopped then quit
-    
 
     // Promise to move only if we are already still
     var m = new Promise(res => client.onYou(m => m.x % 1 != 0 || m.y % 1 != 0 
@@ -106,13 +106,14 @@ class MoveTo extends Plan {
     }
 
     // If we failed to reach target we failed the plan
-    if(me.x !== predicate.target.x || me.y !== predicate.target.y){
+    if(myBelief.me.x !== predicate.target.x || myBelief.me.y !== predicate.target.y){
       throw ["failed"];
     }
     
     return true;
   }
 }
+
 
 class Deliver extends Plan {
   /**
@@ -125,7 +126,7 @@ class Deliver extends Plan {
   /**
    * Execute the plan
    */
-  async execute ( predicate, client ) {
+  async execute ( predicate ) {
     if ( this.stopped ) throw ['stopped']; // if stopped then quit
     await this.subIntention( {type: "moveTo", target: {x: predicate.target.x, 
       y: predicate.target.y}}, client );
@@ -148,36 +149,22 @@ class Idle extends Plan {
   /**
    * Execute the plan
    */
-  async execute ( predicate, client ) {
+  async execute ( predicate ) {
     
     if ( this.stopped ) throw ['stopped']; // if stopped then quit
     
-    // Find all tiles with type 1 (parcel spawn points)
-    const spawnableTiles = [];
-    for (let x = 0; x < map.length; x++) {
-      for (let y = 0; y < map[x].length; y++) {
-        if (map[x][y] === 1 && me.x != x && me.y != y) { // diverso da quello in cui sei
-          spawnableTiles.push({x, y});
-        }
-      }
-    }
-
-    if ( this.stopped ) throw ['stopped']; // if stopped then quit
-
-    // If no spawn tiles wait a few
-    if (spawnableTiles.length === 0) {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      throw "no spawnable tiles";
-    }
 
     //Find n nearest tiles
-    const closestSpawns = spawnableTiles
+    const closestSpawns = myBelief.map.spawnTiles
+    .filter(spawn => !(spawn.x === myBelief.me.x && spawn.y === myBelief.me.y)) // Exclude current position
       .map(spawn => ({
         point: spawn,
-        distance: manhDistance(me, spawn)
+        distance: aStar(myBelief.me, spawn, myBelief.map).length
       }))
+      .filter(spawn => spawn.distance > 0) // Exclude targets with path length 0
       .sort((a, b) => a.distance - b.distance)
-      .slice(0, 4); // Consider top 4 closest
+      .slice(0, 8); // Consider closest
+    
 
     // Randomly pick one of these tiles
     const totalWeight = closestSpawns.reduce((sum, spawn) => 

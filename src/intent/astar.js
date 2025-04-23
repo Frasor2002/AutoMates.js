@@ -1,5 +1,6 @@
 //Implementation of the AStar search algorithm
 
+
 /**
  * Compute Manhattan distance between positions
  * @param {Object} p1 - First position
@@ -7,24 +8,6 @@
  * @returns {number} Manhattan distance 
  */
 function manhDistance(p1, p2){ return Math.abs(p1.x - p2.x) + Math.abs(p1.y - p2.y); }
-
-
-
-
-/**Function to check if a position has an obstacle
- * @param {Object} pos 
- * @param {Array} map 
- * @returns 
- */
-function isWalkable(pos, map) {
-  // First check if position is within bounds
-  if (pos.x < 0 || pos.y < 0 || pos.x >= map.length || pos.y >= map[0].length) {
-    return false;
-  }
-  
-  //console.log(pos)
-  return map[pos.x][pos.y] !== 0;
-}
 
 
 /**
@@ -54,20 +37,18 @@ function reconstructPath(cameFrom, currentKey, startKey) {
  * Function to compute A* Search and return the path
  * @param {Object} start 
  * @param {Object} goal 
- * @param {Array} map 
+ * @param {DeliverooMap} deliverooMap 
  */
-function aStar(start, goal, map){
-  //console.log(isWalkable(goal,map))
-
+function aStar(start, goal, deliverooMap){
   // Define function to get heuristic
   const heuristic = manhDistance;
 
   // Declare directions the agent can potentially move to
   const directions = [
-      { dx: 0, dy: -1, action: "down" },
-      { dx: 0, dy: 1, action: "up" },
-      { dx: -1, dy: 0, action: "left" },
-      { dx: 1, dy: 0, action: "right" }
+    { dx: 0, dy: -1, action: "down" },
+    { dx: 0, dy: 1, action: "up" },
+    { dx: -1, dy: 0, action: "left" },
+    { dx: 1, dy: 0, action: "right" }
   ];
 
   // Initiliaze necessary Set
@@ -119,7 +100,7 @@ function aStar(start, goal, map){
 
 
       // Skip if not walkable
-      if (!isWalkable({x:neighborX, y:neighborY}, map)) {
+      if (!deliverooMap.isWalkable({x:neighborX, y:neighborY})) {
         continue;
       }
 
@@ -140,9 +121,8 @@ function aStar(start, goal, map){
   }
 
   // If we explored everything but did not reach the goal
-  console.log("Empty return")
   return [];
 }
 
 
-export {manhDistance, aStar};
+export {aStar};

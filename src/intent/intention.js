@@ -4,8 +4,6 @@ import { planLib } from "../plan/plan.js";
 // Class to define an intent of the agent
 class Intention {
   // Private attributes
-  //Information on agent and API to run the plans
-  #client;
 
   #current_plan;
   #stopped = false;
@@ -18,10 +16,9 @@ class Intention {
    * @param {*} parent 
    * @param {*} predicate 
    */
-  constructor( parent, predicate, client ) {
+  constructor( parent, predicate ) {
     this.#parent = parent;
     this.#predicate = predicate;
-    this.#client = client;
   }
 
   /**Getter for stopped attribute. */
@@ -36,7 +33,9 @@ class Intention {
           this.#current_plan.stop();
   }
 
-  /** Getter for the predicate*/
+  /** Getter for the predicate
+   * Predicate is in the form {type: "", target: {}, priority: number}
+  */
   get predicate () {
     return this.#predicate;
   }
@@ -71,7 +70,7 @@ class Intention {
         
         // Now we can execute the plan
         try {
-          const plan_res = await this.#current_plan.execute( this.predicate, this.#client );
+          const plan_res = await this.#current_plan.execute( this.predicate );
           this.log( 'succesful intention', this.predicate, 'with plan', planClass.name, 'with result:', plan_res );
           return plan_res
         // If we fail we can catch any error
