@@ -26,7 +26,6 @@ class IntentionRevision {
     // and isn't carried by someone else
     if (intention.predicate.type === "pickUp") {
       const targetParcel = parcels.find(p => p.id === intention.predicate.target.id);
-      //console.log("PID CHekc", targetParcel !== undefined && !targetParcel.carriedBy)
       return targetParcel !== undefined && !targetParcel.carriedBy;
     }
 
@@ -48,7 +47,7 @@ class IntentionRevision {
     while ( true ) {
       // If queue not empty
       if ( this.#intentionQueue.length > 0 ) {
-        console.log( 'intentionRevision.loop', this.#intentionQueue.map(i=>i.predicate) );
+        //console.log( 'intentionRevision.loop', this.#intentionQueue.map(i=>i.predicate) );
         
         // Get the current best intention
         const intention = this.#intentionQueue[0];
@@ -85,7 +84,7 @@ class IntentionRevision {
    * @param {*} predicate 
    */
   async push ( predicate ) {
-    console.log( 'To push. Received', predicate );
+    //console.log( 'To push. Received', predicate );
 
     // Get the highest priority intent now
     const last = this.#intentionQueue[0];

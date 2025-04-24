@@ -1,7 +1,13 @@
+import { onlineSolver, PddlProblem } from "@unitn-asa/pddl-client";
 import { myBelief } from "../belief/sensing.js";
 import { aStar } from "../intent/astar.js";
 import { Intention } from "../intent/intention.js";
 import { client } from "../connection/connection.js";
+import { readFile } from "./utils.js";
+
+//Get domain for pddl planning
+const domain = await readFile("./src/plan/domain.pddl")
+const PDDL = false;
 
 // Library where plans are put inside
 const planLib = [];
@@ -51,32 +57,6 @@ class Plan {
 }
 
 
-class PickUp extends Plan {
-
-  /**
-   * Check if this plan can be applied to an intention
-   */
-  static isApplicableTo ( predicate ) {
-    return predicate.type == 'pickUp';
-  }
-
-
-  /**
-   * Execute the plan
-   */
-  async execute ( predicate ) {
-    if ( this.stopped ) throw ['stopped']; // if stopped then quit
-    await this.subIntention( {type: "moveTo", target: {x: predicate.target.x, 
-      y: predicate.target.y}} );
-    if ( this.stopped ) throw ['stopped']; // if stopped then quit
-    await client.emitPickup();
-    if ( this.stopped ) throw ['stopped']; // if stopped then quit
-
-    return true;
-  }
-}
-
-
 class MoveTo extends Plan {
   /**
   * Check if this plan can be applied to an intention
@@ -113,6 +93,109 @@ class MoveTo extends Plan {
     return true;
   }
 }
+
+
+class PDDLMoveTo extends Plan {
+  /**
+  * Check if this plan can be applied to an intention
+  */
+  static isApplicableTo ( predicate ) {
+    return predicate.type == 'moveTo';
+  }
+
+
+  /**
+   * Execute the plan
+   */
+  async execute ( predicate ) {
+    if ( this.stopped ) throw ['stopped']; // if stopped then quit
+
+    const agentName = myBelief.me.id;
+    const currentTile = `t_${myBelief.me.x}_${myBelief.me.y}`;
+    const targetTile = `t_${predicate.target.x}_${predicate.target.y}`;
+
+
+    // Update beliefset of map
+    myBelief.map.updatePDDL();
+    // Get map information
+    const objectList = [...myBelief.map.mapBeliefSet.objects, agentName];
+    const objects = objectList.join(' ');
+
+    // Get current agent tile
+    const initState = myBelief.map.mapBeliefSet.toPddlString()
+    + ` (me ${agentName})`
+    + ` (agent ${agentName})`
+    + ` (at ${agentName} ${currentTile})`;
+    
+    // Construct target goal predicate
+    const goal = `at ${agentName} ${targetTile}`;
+
+    
+    // Create problem
+    const pddlProblem = new PddlProblem(
+      'deliveroo',
+      objects,
+      initState,
+      goal
+    );
+
+    const problem = pddlProblem.toPddlString();
+
+    const plan = await onlineSolver(domain, problem);
+    console.log(plan);
+
+    const path = plan.map(step => step.action.toLowerCase());
+    
+    if ( this.stopped ) throw ['stopped']; // if stopped then quit
+
+    // Promise to move only if we are already still
+    var m = new Promise(res => client.onYou(m => m.x % 1 != 0 || m.y % 1 != 0 
+      ? null : res()));
+    
+    for(const move of path){
+      if ( this.stopped ) throw ['stopped']; // if stopped then quit
+      await client.emitMove(move);
+      await m;
+      if ( this.stopped ) throw ['stopped']; // if stopped then quit
+    }
+
+    // If we failed to reach target we failed the plan
+    if(myBelief.me.x !== predicate.target.x || myBelief.me.y !== predicate.target.y){
+      throw ["failed"];
+    }
+
+    return true;
+  }
+}
+
+
+class PickUp extends Plan {
+
+  /**
+   * Check if this plan can be applied to an intention
+   */
+  static isApplicableTo ( predicate ) {
+    return predicate.type == 'pickUp';
+  }
+
+
+  /**
+   * Execute the plan
+   */
+  async execute ( predicate ) {
+    if ( this.stopped ) throw ['stopped']; // if stopped then quit
+    await this.subIntention( {type: "moveTo", target: {x: predicate.target.x, 
+      y: predicate.target.y}} );
+    if ( this.stopped ) throw ['stopped']; // if stopped then quit
+    await client.emitPickup();
+    if ( this.stopped ) throw ['stopped']; // if stopped then quit
+
+    return true;
+  }
+}
+
+
+
 
 
 class Deliver extends Plan {
@@ -165,6 +248,10 @@ class Idle extends Plan {
       .sort((a, b) => a.distance - b.distance)
       .slice(0, 8); // Consider closest
     
+    // Stop if no closest found
+    if(closestSpawns.length == 0){
+      return true;
+    }
 
     // Randomly pick one of these tiles
     const totalWeight = closestSpawns.reduce((sum, spawn) => 
@@ -193,8 +280,12 @@ class Idle extends Plan {
 }
 
 // Add all plans to planLib
+if(PDDL){
+  planLib.push(PDDLMoveTo);
+} else {
+  planLib.push(MoveTo);
+}
 planLib.push(PickUp);
-planLib.push(MoveTo);
 planLib.push(Deliver);
 planLib.push(Idle);
 

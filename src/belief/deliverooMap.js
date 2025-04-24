@@ -141,22 +141,22 @@ class DeliverooMap {
 
         // Tile to the right
         if ((i + 1) < this.width && this.map[i + 1][j] > 0) {
-          this.myBeliefset.declare('right t_' + i + '_' + j + ' t_' + (i + 1) + '_' + j);
+          this.mapBeliefSet.declare('right t_' + i + '_' + j + ' t_' + (i + 1) + '_' + j);
         }
 
         // Tile to the left
         if ((i - 1) >= 0 && this.map[i - 1][j] > 0) {
-          this.myBeliefset.declare('left t_' + i + '_' + j + ' t_' + (i - 1) + '_' + j);
+          this.mapBeliefSet.declare('left t_' + i + '_' + j + ' t_' + (i - 1) + '_' + j);
         }
 
         // Tile up
         if ((j + 1) < this.height && this.map[i][j + 1] > 0) {
-          this.myBeliefset.declare('up t_' + i + '_' + j + ' t_' + i + '_' + (j + 1));
+          this.mapBeliefSet.declare('up t_' + i + '_' + j + ' t_' + i + '_' + (j + 1));
         }
 
         // Tile down
         if ((j - 1) >= 0 && this.map[i][j - 1] > 0) {
-          this.myBeliefset.declare('down t_' + i + '_' + j + ' t_' + i + '_' + (j - 1));
+          this.mapBeliefSet.declare('down t_' + i + '_' + j + ' t_' + i + '_' + (j - 1));
         }
       }
     }
