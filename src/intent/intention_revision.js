@@ -1,6 +1,7 @@
 import { Intention } from "./intention.js";
 import { myBelief } from "../belief/sensing.js";
 import { quickSort } from "./utils.js";
+import { logger } from "../logger.js";
 
 
 class IntentionRevision {
@@ -47,8 +48,12 @@ class IntentionRevision {
     while ( true ) {
       // If queue not empty
       if ( this.#intentionQueue.length > 0 ) {
+        logger.logDecisions(
+          Array.from(this.#intentionQueue.map(i=>i.predicate)),
+          "CURRENT INTENTIONS"
+        )
         //console.log( 'intentionRevision.loop', this.#intentionQueue.map(i=>i.predicate) );
-        
+
         // Get the current best intention
         const intention = this.#intentionQueue[0];
               
