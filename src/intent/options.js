@@ -1,6 +1,7 @@
 import { priorityPickUp, closestDelivery } from "./utils.js";
 import { myBelief } from "../belief/sensing.js";
 import { agent } from "../agent.js"
+import { logger } from "../logger.js";
 
 /**
  * Function that when receiving new sensing generates a new option
@@ -37,6 +38,7 @@ function optionGeneration(){
   // If I do not have any parcel in my beliefSet we add an idle option
   options.push({type: "idle", priority: -Infinity});
 
+  logger.logDecisions(options,"GENERATED OPTIONS")
 
   /*Option filtering*/
   let bestOption;
