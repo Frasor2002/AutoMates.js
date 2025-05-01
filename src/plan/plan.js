@@ -4,6 +4,7 @@ import { aStar } from "../intent/astar.js";
 import { Intention } from "../intent/intention.js";
 import { client } from "../connection/connection.js";
 import { readFile } from "./utils.js";
+import { logger } from "../logger.js";
 
 //Get domain for pddl planning
 const domain = await readFile("./src/plan/domain.pddl")
@@ -79,6 +80,8 @@ class MoveTo extends Plan {
       ? null : res()));
     
     for(const move of path){
+      logger.logOthers(`Current move: ${JSON.stringify(move)}`)
+
       if ( this.stopped ) throw ['stopped']; // if stopped then quit
       await client.emitMove(move);
       await m;
