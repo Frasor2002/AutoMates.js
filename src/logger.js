@@ -120,8 +120,8 @@ class Log {
         }
 
         let par = Array.from(
-            parcels.values().filter((a)=>{return a.carriedBy==null})
-        )
+            parcels.values()
+        ).filter(a => a.carriedBy == null)
         par.sort((a,b)=>{
             if(a.y == b.y){return a.x - b.x}
             else {return b.y - a.y}
