@@ -1,4 +1,4 @@
-import { priorityPickUp, closestDelivery } from "./utils.js";
+import { priorityPickUp, priorityPutDown } from "./utils.js";
 import { myBelief } from "../belief/sensing.js";
 import { agent } from "../agent.js"
 
@@ -14,23 +14,30 @@ function optionGeneration(){
   const options = [];
 
   //For now let's add options to pick up the sensed parce excluding that carried by others
-  const parcels = myBelief.getParcels().filter(p => !p.carriedBy || p.carriedBy === myBelief.me.id);
+  // Also some parcel sometimes is without x or y and we will ignore it
+  const parcels = myBelief.getParcels().filter(p => (!p.carriedBy || 
+    p.carriedBy === myBelief.me.id) && p.x != null && p.y != null);
   
   for(const p of parcels){
-    if(!p.carriedBy){
+    if(!p.carriedBy){ // Parcel not carried by me
       // Add a new option for the agent
       options.push({type: "pickUp", 
-        target: {x: p.x, y: p.y, id: p.id}, priority: priorityPickUp(p)});
+        target: {x: p.x, y: p.y, id: p.id}, 
+        priority: priorityPickUp(p)});
     }
   }
 
   // If I am carryig a parcel
-  if(parcels.filter(p => p.carriedBy === myBelief.me.id).length > 0){
-    // Let's generate a high priority delivery option
-    const closeDelivery = closestDelivery(myBelief.me, myBelief.map.deliveryTiles);
-    if(closeDelivery){
+  const carriedParcels = parcels.filter(p => p.carriedBy === myBelief.me.id); 
+  if(carriedParcels.length > 0){
+    // Total reward of carried parcels
+    const totalReward = carriedParcels.reduce((sum, p) => sum + p.reward, 0);
+    
+    // Generate an option for every delivery tile with different priority
+    for(const delivery of myBelief.map.deliveryTiles){
       options.push({type:"deliver", 
-        target: {x: closeDelivery.x, y: closeDelivery.y}, priority: 6});
+        target: {x: delivery.x, y: delivery.y}, 
+        priority: priorityPutDown(delivery, totalReward)});
     }
   }
 

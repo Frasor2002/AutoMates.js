@@ -11,28 +11,35 @@ import { myBelief } from "../belief/sensing.js";
  * @param {Object} parcel 
  */
 function priorityPickUp(parcel) {
+  if(parcel.x === undefined || parcel.y === undefined){
+    //console.log(parcel)
+    return -Infinity
+  }
+
   // Calculate distance to parcel using A*
   const distance = aStar(myBelief.me, parcel, myBelief.map).length;
     
-  // If parcel is being carried by someone else, return lowest possible score
-  // Or if not reachable
-  if (parcel.carriedBy || distance == 0) return -Infinity;
+  // If parcel not reachable
+  if(distance == 0) return -Infinity;
   
   // Base score is the reward value
   let priority = parcel.reward;
   
   // Apply distance penalty (the farther away, the lower the score)
-  // + 1 is to avoid division by zero and * 10 is to have numbers > 0
-  priority /= (distance + 1) * 10;
+  // * 10 is to have numbers > 0
+  priority /= (distance) * 10;
 
   // Check if other agents are nearby the parcel
   const nearbyAgentThreshold = distance; // # tiles of tollerance
+
   for (const agent of myBelief.getAgents()) {
-    if (agent.id !== myBelief.me.id) { // skip self
+    if (agent.id !== myBelief.me.id) { // Skip self
+
       const agentCoord = {x: Math.round(agent.x), y: Math.round(agent.y)}
       const agentDistance = aStar(agentCoord, parcel, myBelief.map).length;
+
       if (agentDistance < nearbyAgentThreshold) {
-        priority *= 0.5;
+        priority *= 0.9;
         // Stop at first agent near found
         break;
       }
@@ -45,21 +52,15 @@ function priorityPickUp(parcel) {
 
 
 /**
- * Function to return the closest delivery tile
- * @param {Object} me 
+ * Function to return the delivery tile utility
+ * @param {Object} delivery delivery tile
+ * @param {Number} totalReward reward of currently carried parcels 
  */
-function closestDelivery(){
-  let closest = null;
-  let minDist = Infinity;
+function priorityPutDown(delivery, totalReward){
+  const distance = aStar(myBelief.me, delivery, myBelief.map).length;
+  if (distance === 0) return -Infinity; // No path or already on delivery tile
 
-  for(const tile of myBelief.map.deliveryTiles){
-    const distance = aStar(myBelief.me, tile, myBelief.map).length;
-    if(distance != 0 && distance < minDist){
-      closest = tile;
-      minDist = distance;
-    }
-  }
-  return closest;
+  return totalReward / distance * 10; // Same formula of priorityPickUp
 }
 
 
@@ -101,4 +102,4 @@ function quickSort(arr) {
 
 
 
-export {priorityPickUp, closestDelivery, quickSort};
+export {priorityPickUp, priorityPutDown, quickSort};

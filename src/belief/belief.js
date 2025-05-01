@@ -46,6 +46,9 @@ class Belief {
     this.config.AGENTS_OBSERVATION_DISTANCE = config.AGENTS_OBSERVATION_DISTANCE;
     this.config.PARCELS_OBSERVATION_DISTANCE = config.PARCELS_OBSERVATION_DISTANCE;
     this.config.AGENT_TIMEOUT = config.AGENT_TIMEOUT;
+
+    // Transfer POD to map for scoring
+    this.map.POD = this.config.PARCELS_OBSERVATION_DISTANCE;
   }
 
   /**Function to update the reference to current agent
@@ -109,50 +112,31 @@ class Belief {
   updateAgents(sensed_agents){
     // Prepare a clean map to set position of agents
     this.map.clearMap();
-
     for(const a of sensed_agents){
       //Add timestamp
       a.timestamp = Date.now();
 
       // If agent isn't already saved, save it
       if(!this.agentBelief.has(a.id)){
-        a.moving = ""; // Where the agent is moving
         this.agentBelief.set(a.id, a);
       } else {
-        // Compute agent direction and set position of the agent as wall
-        const seenLast = this.agentBelief.get(a.id);
-        // If we saw him in the last 5 moves
-        if(Date.now() - seenLast.timestamp < this.config.MOVEMENT_DURATION * 5){
-          const horrizontalMove = seenLast.x - a.x;
-          const verticalMove = seenLast.y - a.y;
-          if(horrizontalMove > 0){
-            a.moving = "left";
-            this.map.updateMap({x: a.x + 1, y:a.y});
-          }
-          else if(horrizontalMove < 0){
-            a.moving = "right";
-            this.map.updateMap({x: a.x - 1, y:a.y});
-          }
-          else if(verticalMove > 0){
-            a.moving = "down";
-            this.map.updateMap({x: a.x, y: a.y - 1});
-          }
-          else if(verticalMove < 0){
-            a.moving = "up";
-            this.map.updateMap({x: a.x, y:a.y + 1});
-          }
-          else{
-            a.moving = "";
-          }
-        }
         // Update old agent state
         this.agentBelief.set(a.id, a);
       }
     }
-
-    // Now we update map with all current agent positions
-    for (const a of this.agentBelief.values()) {
-      this.map.updateMap({x:a.x, y:a.y});
+    // Loop for map update
+    for(const a of  Array.from(this.agentBelief.values())){
+      // If coordinates are float agent is moving
+      if(!Number.isInteger(a.x) || !Number.isInteger(a.y)){
+        const pos1 = {x: Math.ceil(a.x), y: Math.ceil(a.y)}; // Round up coordinates
+        const pos2 = {x: Math.trunc(a.x), y: Math.trunc(a.y)}; // Truncate coordinates
+        //console.log("moving", pos1, pos2)
+        this.map.updateMap(pos1);
+        this.map.updateMap(pos2);
+      }else{ // Otherwise agent is still
+        const pos = {x: a.x, y: a.y};
+        this.map.updateMap(pos);
+      }
     }
   }
 
@@ -169,7 +153,8 @@ class Belief {
    * @returns 
    */
   getAgents(){
-    return Array.from(this.agentBelief.values());
+    return Array.from(this.agentBelief.values()).filter(a => {
+      return Date.now() - a.timestamp < 10 * this.config.MOVEMENT_DURATION});
   }
 
 

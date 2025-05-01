@@ -62,7 +62,7 @@ class IntentionRevision {
         await intention.achieve()
         // Catch failures and go on
         .catch( error => {
-          console.log( 'Failed intention', intention.predicate, 'with error:', ...error )
+          //console.log( 'Failed intention', intention.predicate, 'with error:', ...error )
         });
 
         // Delete intention

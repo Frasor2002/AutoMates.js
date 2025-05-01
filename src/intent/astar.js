@@ -40,6 +40,11 @@ function reconstructPath(cameFrom, currentKey, startKey) {
  * @param {DeliverooMap} deliverooMap 
  */
 function aStar(start, goal, deliverooMap){
+  // If goal not reachable
+  if(!deliverooMap.isWalkable(goal)){
+    return [];
+  }
+
   // Define function to get heuristic
   const heuristic = manhDistance;
 
@@ -65,7 +70,7 @@ function aStar(start, goal, deliverooMap){
 
   // Given a node the sum of gScore and heuristic
   const fScore = new Map();
-  fScore.set(startKey, gScore.get(startKey) + heuristic(start, goal));
+  fScore.set(startKey, gScore.get(startKey));
 
   // While set of nodes to expand not empty
   while (openSet.size > 0) {

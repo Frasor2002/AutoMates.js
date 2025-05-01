@@ -1,7 +1,6 @@
 import { Beliefset } from "@unitn-asa/pddl-client";
 
 
-
 /** Class containing all information regarding the state of the map */
 class DeliverooMap {
   // Properties
@@ -32,6 +31,9 @@ class DeliverooMap {
   /**Map beliefset used for pddl */
   mapBeliefSet = new Beliefset();
 
+  /**Observation distance saved in this class */
+  POD = 0;
+
   /**
    * Initialize this class
    */
@@ -43,6 +45,7 @@ class DeliverooMap {
     this.deliveryTiles = [];
     this.spawnTiles = [];
     this.mapBeliefSet = new Beliefset();
+    this.POD = 0;
   }
 
   /**Check a position is within map bounds 
@@ -89,13 +92,37 @@ class DeliverooMap {
 
 
   /** Initialize the tile lists
-   * @param {Array} tiles 
+   * @param {Array} tiles sensed tiles
    */
   initTileLists(tiles) {
     this.deliveryTiles = tiles.filter(t => t.type == 2).map(t => ({ x: t.x, y: t.y }));
-    this.spawnTiles = tiles.filter(t => t.type == 1).map(t => ({ x: t.x, y: t.y }));
+    this.spawnTiles = tiles.filter(t => t.type == 1).map(t => ({ x: t.x, y: t.y, score: this.getSpawnScore(t)}));
   }
 
+  /**Get spawn tile by how many spawnable tiles are nearby
+   * @param {Object} tile
+   */ 
+  getSpawnScore(tile){
+    let score = 0;
+    // Check all tiles within POD distance (Manhattan distance)
+    for (let dx = -this.POD; dx <= this.POD; dx++) {
+      for (let dy = -this.POD; dy <= this.POD; dy++) {        
+        // Calculate Manhattan distance
+        const distance = Math.abs(dx) + Math.abs(dy);
+        // Only count if within POD
+        if (distance <= this.POD) {
+          const x = tile.x + dx;
+          const y = tile.y + dy;
+            
+          // Check bounds and if it's a spawn tile in original map
+          if (this.isInBounds({x, y}) && this.#originalMap[x][y] === 1) {
+            score++;
+          }
+        }
+      }
+    }
+    return score;
+  }
   
   /**
    * Reset the map state with original map reference
@@ -115,10 +142,6 @@ class DeliverooMap {
    * @param {Object} pos 
    */
   updateMap(pos) {
-    // Round the positions
-    pos.x = Math.round(pos.x);
-    pos.y = Math.round(pos.y);
-
     //Check if position is valid (in bounds)
     if(this.isInBounds(pos)){
       this.map[pos.x][pos.y] = -1;

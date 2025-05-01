@@ -9,7 +9,7 @@ class Agent {
   async run() {
     this.intentionRevision.loop();
 
-    setInterval(optionGeneration, 100)
+    setInterval(optionGeneration, 100);
   }
 }
 
