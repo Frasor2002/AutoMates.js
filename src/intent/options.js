@@ -21,10 +21,13 @@ function optionGeneration(){
   
   for(const p of parcels){
     if(!p.carriedBy){ // Parcel not carried by me
-      // Add a new option for the agent
-      options.push({type: "pickUp", 
-        target: {x: p.x, y: p.y, id: p.id}, 
-        priority: priorityPickUp(p)});
+      const priority = priorityPickUp(p);
+      if(priority !== -Infinity){ // if option is different from -Infinity
+        // Add a new option for the agent
+        options.push({type: "pickUp", 
+          target: {x: p.x, y: p.y, id: p.id}, 
+          priority: priorityPickUp(p)});
+        }
     }
   }
 

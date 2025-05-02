@@ -88,7 +88,7 @@ class IntentionRevision {
    * Function to add a new best option to the intention queue
    * @param {*} predicate 
    */
-  async push ( predicate ) {
+  push ( predicate ) {
     //console.log( 'To push. Received', predicate );
 
     // Get the highest priority intent now
@@ -116,9 +116,8 @@ class IntentionRevision {
 
     // Sort the list
     this.#intentionQueue = quickSort(this.#intentionQueue);
-    
     // If a better intent is found we have to stop last and start the new one
-    if (last && JSON.stringify(last.predicate) != JSON.stringify(this.#intentionQueue[0].predicate)) {
+    if ((last != null) && (JSON.stringify(last.predicate) != JSON.stringify(this.#intentionQueue[0].predicate))) {
       last.stop();
     }
   }

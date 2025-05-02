@@ -60,7 +60,7 @@ function priorityPutDown(delivery, totalReward){
   const distance = aStar(myBelief.me, delivery, myBelief.map).length;
   if (distance === 0) return -Infinity; // No path or already on delivery tile
 
-  return totalReward / distance * 10; // Same formula of priorityPickUp
+  return totalReward / (distance*10); // Same formula of priorityPickUp
 }
 
 
