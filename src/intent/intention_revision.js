@@ -52,7 +52,7 @@ class IntentionRevision {
           Array.from(this.#intentionQueue.map(i=>i.predicate)),
           "CURRENT INTENTIONS"
         )
-        //console.log( 'intentionRevision.loop', this.#intentionQueue.map(i=>i.predicate) );
+        console.log( 'intentionRevision.loop', this.#intentionQueue.map(i=>i.predicate) );
 
         // Get the current best intention
         const intention = this.#intentionQueue[0];
@@ -117,7 +117,7 @@ class IntentionRevision {
     // Sort the list
     this.#intentionQueue = quickSort(this.#intentionQueue);
     // If a better intent is found we have to stop last and start the new one
-    if ((last != null) && (JSON.stringify(last.predicate) != JSON.stringify(this.#intentionQueue[0].predicate))) {
+    if ((last != null) && (JSON.stringify(last.predicate) !== JSON.stringify(this.#intentionQueue[0].predicate))) {
       last.stop();
     }
   }

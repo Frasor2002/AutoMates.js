@@ -39,9 +39,12 @@ function optionGeneration(){
     
     // Generate an option for every delivery tile with different priority
     for(const delivery of myBelief.map.deliveryTiles){
-      options.push({type:"deliver", 
-        target: {x: delivery.x, y: delivery.y}, 
-        priority: priorityPutDown(delivery, totalReward)});
+      const priority = priorityPutDown(delivery, totalReward);
+      if(priority !== -Infinity){ // Save intention only if priority is higher than -Infinity
+        options.push({type:"deliver", 
+          target: {x: delivery.x, y: delivery.y}, 
+          priority: priorityPutDown(delivery, totalReward)});
+      }
     }
   }
 

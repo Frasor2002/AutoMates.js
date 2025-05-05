@@ -75,7 +75,7 @@ class Intention {
           return plan_res
         // If we fail we can catch any error
         } catch (error) {
-          this.log( 'failed intention', this.predicate,'with plan', planClass.name, 'with error:', error );
+          //this.log( 'failed intention', this.predicate,'with plan', planClass.name, 'with error:', error );
         }
       }
     }

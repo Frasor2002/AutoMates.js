@@ -84,7 +84,6 @@ class MoveTo extends Plan {
       }
       // Get a move and move in that direction
       const move = path[0];
-      
       logger.logOthers(`Current move: ${JSON.stringify(move)}`)
 
       if ( this.stopped ) throw ['stopped']; // if stopped then quit
@@ -284,7 +283,7 @@ class Idle extends Plan {
     }
 
     // Check if we're in a high-scoring area but no parcels are around
-    const shouldExplore = currScore > 3 && Math.random() < 0.3; // 30% chance to explore from high-score areas
+    const shouldExplore = currScore > 3 && Math.random() < 0.6; // 30% chance to explore from high-score areas
 
     const candidateSpawns = myBelief.map.spawnTiles
       .filter(spawn => {

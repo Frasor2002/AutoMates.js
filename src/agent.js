@@ -10,6 +10,8 @@ class Agent {
     this.intentionRevision.loop();
 
     setInterval(optionGeneration, 100);
+
+    //setInterval(() => console.log("Priority:", this.belief.me.penalty), 1000)
   }
 }
 
