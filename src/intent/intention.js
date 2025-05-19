@@ -71,21 +71,25 @@ class Intention {
         // Now we can execute the plan
         try {
           const plan_res = await this.#current_plan.execute( this.predicate );
+
           //this.log( 'succesful intention', this.predicate, 'with plan', planClass.name, 'with result:', plan_res );
           return plan_res
         // If we fail we can catch any error
         } catch (error) {
-          //this.log( 'failed intention', this.predicate,'with plan', planClass.name, 'with error:', error );
+          this.log( 'failed intention', this.predicate,'with plan', planClass.name, 'with error:', error );
         }
       }
     }
 
     //  If intention is stopped we throw a stopped intention
-    if ( this.stopped ) throw [ 'stopped intention', this.predicate ];
+    if ( this.stopped ) throw [ 'Stopped intention', this.predicate ];
 
     // No plans satisfy this intention
-    throw ['no plan satisfied the intention ', this.predicate ]
+    throw ['No plan satisfied the intention', this.predicate ]
   }
+
+  
+  
 }
 
 export {Intention};

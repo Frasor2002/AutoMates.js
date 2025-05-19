@@ -4,11 +4,12 @@ import { aStar } from "../intent/astar.js";
 import { Intention } from "../intent/intention.js";
 import { client } from "../connection/connection.js";
 import { readFile } from "./utils.js";
+import { envArgs } from "../connection/env.js";
 import { logger } from "../logger.js";
+import { optionGeneration } from "../intent/options.js";
 
 //Get domain for pddl planning
 const domain = await readFile("./src/plan/domain.pddl")
-const PDDL = false;
 
 // Library where plans are put inside
 const planLib = [];
@@ -78,25 +79,23 @@ class MoveTo extends Plan {
 
       // Get a path
       const path = aStar(myBelief.me, predicate.target, myBelief.map);
+      
       // Empty path
       if(path.length === 0){
-        break;
+        throw ["failed"];
       }
       // Get a move and move in that direction
       const move = path[0];
-      logger.logOthers(`Current move: ${JSON.stringify(move)}`)
+
+      // If logger active, log current movement
+      if(envArgs.logger){
+        logger.logOthers(`Current move: ${JSON.stringify(move)}`, myBelief.time, "frame")
+      }
 
       if ( this.stopped ) throw ['stopped']; // if stopped then quit
       await client.emitMove(move);
       if ( this.stopped ) throw ['stopped']; // if stopped then quit
-      // Await a bit before moving again
-      await new Promise(res => setTimeout(res, myBelief.config.MOVEMENT_DURATION));
-      if ( this.stopped ) throw ['stopped']; // if stopped then quit
-    }
-
-    // If we failed to reach target we failed the plan
-    if(myBelief.me.x !== predicate.target.x || myBelief.me.y !== predicate.target.y){
-      throw ["failed"];
+      await new Promise(res => setImmediate(res));
     }
     
     return true;
@@ -162,6 +161,11 @@ class PDDLMoveTo extends Plan {
     if ( this.stopped ) throw ['stopped']; // if stopped then quit
     
     for(const move of path){
+      // If log is active, log current movement
+      if(envArgs.logger){
+        logger.logOthers(`Current move: ${JSON.stringify(move)}`, myBelief.time, "frame")
+      }
+
       if ( this.stopped ) throw ['stopped']; // if stopped then quit
       // We must try to avoid other agents
 
@@ -188,11 +192,14 @@ class PDDLMoveTo extends Plan {
 
       while(!myBelief.map.isWalkable(nextPos)){
         await new Promise(res => setTimeout(res, myBelief.config.MOVEMENT_DURATION));
+        await new Promise(res => setImmediate(res));
       }
+  
 
-      await client.emitMove(move);
-      await new Promise(res => setTimeout(res, myBelief.config.MOVEMENT_DURATION));
       if ( this.stopped ) throw ['stopped']; // if stopped then quit
+      await client.emitMove(move);
+      if ( this.stopped ) throw ['stopped']; // if stopped then quit
+      await new Promise(res => setImmediate(res));
     }
 
     // If we failed to reach target we failed the plan
@@ -337,11 +344,12 @@ class Idle extends Plan {
 }
 
 // Add all plans to planLib
-if(PDDL){
+if(envArgs.usePDDL){
   planLib.push(PDDLMoveTo);
 } else {
   planLib.push(MoveTo);
 }
+
 planLib.push(PickUp);
 planLib.push(Deliver);
 planLib.push(Idle);

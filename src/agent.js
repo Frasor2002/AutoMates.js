@@ -5,13 +5,11 @@ import { optionGeneration } from "./intent/options.js";
 class Agent {
   belief = myBelief;
   intentionRevision = new IntentionRevision();
-
+  
   async run() {
     this.intentionRevision.loop();
 
-    setInterval(optionGeneration, 100);
-
-    //setInterval(() => console.log("Priority:", this.belief.me.penalty), 1000)
+    setInterval(optionGeneration, 50);  
   }
 }
 

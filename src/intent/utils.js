@@ -11,6 +11,7 @@ import { myBelief } from "../belief/sensing.js";
  * @param {Object} parcel 
  */
 function priorityPickUp(parcel) {
+  // Sometimes the agent sees parcel that are out of bounds, in that case we filter them out
   if(parcel.x === undefined || parcel.y === undefined){
     //console.log(parcel)
     return -Infinity
@@ -60,7 +61,7 @@ function priorityPutDown(delivery, totalReward){
   const distance = aStar(myBelief.me, delivery, myBelief.map).length;
   if (distance === 0) return -Infinity; // No path or already on delivery tile
 
-  return totalReward / (distance*10); // Same formula of priorityPickUp
+  return totalReward * 10 / (distance*10); // Same formula of priorityPickUp with a higher reward
 }
 
 
@@ -76,7 +77,7 @@ function quickSort(arr) {
 
   // Choose a pivot (we'll use the middle element)
   const pivotIndex = Math.floor(arr.length / 2);
-  const pivot = arr[pivotIndex].priority;
+  const pivot = arr[pivotIndex].predicate.priority;
 
   // Partition the array into three parts
   const left = [];
@@ -84,9 +85,13 @@ function quickSort(arr) {
   const equal = [];
 
   for (const element of arr) {
-    if (element.priority > pivot) {
+    const current_priority = element.predicate.priority
+    if(current_priority == -Infinity){
+      right.push(element);
+    }
+    else if (current_priority > pivot) {
       left.push(element);
-    } else if (element.priority < pivot) {
+    } else if (current_priority < pivot) {
       right.push(element);
     } else {
       equal.push(element);

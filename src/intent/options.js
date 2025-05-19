@@ -1,6 +1,7 @@
 import { priorityPickUp, priorityPutDown } from "./utils.js";
 import { myBelief } from "../belief/sensing.js";
 import { agent } from "../agent.js"
+import { envArgs } from "../connection/env.js";
 import { logger } from "../logger.js";
 
 /**
@@ -22,7 +23,7 @@ function optionGeneration(){
   for(const p of parcels){
     if(!p.carriedBy){ // Parcel not carried by me
       const priority = priorityPickUp(p);
-      if(priority !== -Infinity){ // if option is different from -Infinity
+      if(priority !== -Infinity){ // If option is different from -Infinity
         // Add a new option for the agent
         options.push({type: "pickUp", 
           target: {x: p.x, y: p.y, id: p.id}, 
@@ -51,7 +52,11 @@ function optionGeneration(){
   // If I do not have any parcel in my beliefSet we add an idle option
   options.push({type: "idle", priority: -Infinity});
 
-  logger.logDecisions(options,"GENERATED OPTIONS")
+
+  // If logger is active, log decisions of the agent
+  if(envArgs.logger){
+    logger.logDecisions(options,"GENERATED OPTIONS", myBelief.time, "frame")
+  }
 
   /*Option filtering*/
   let bestOption;

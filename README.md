@@ -38,3 +38,5 @@ The necessary parameters are:
 
 1. `HOST`: the host (in the form `http://<host>:<port>`) of the server running the environment.
 2. `TOKEN`: the token used to identify the agent.
+3. `USE_PDDL`: set to "true" if PDDL is used for plans or not, by default Astar is used.
+4. `LOGGER`: set to "true" if we want to activate the logger, a '.logs' folder must be created.

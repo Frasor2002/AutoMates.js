@@ -11,6 +11,9 @@ class Belief {
   // Reference to the current agent
   me = {};
 
+  // Time inside the game
+  time = {};
+
   // Belief regarding the game map
   map = new DeliverooMap();
 
@@ -54,7 +57,7 @@ class Belief {
   /**Function to update the reference to current agent
    * @param {Object} me 
    */
-  updateMe(me){
+  updateMe(me, time){
     this.me.id = me.id;
     this.me.name = me.name;
     this.me.teamId = me.teamId;
@@ -63,6 +66,8 @@ class Belief {
     this.me.y = Math.round(me.y);
     this.me.score = me.score;
     this.me.penalty = me.penalty;
+
+    this.time = time;
   }
 
   /**
@@ -154,7 +159,7 @@ class Belief {
    */
   getAgents(){
     return Array.from(this.agentBelief.values()).filter(a => {
-      return Date.now() - a.timestamp < 10 * this.config.MOVEMENT_DURATION});
+      return Date.now() - a.timestamp < 2 * this.config.MOVEMENT_DURATION});
   }
 
 

@@ -20,7 +20,7 @@ class DeliverooMap {
   map = [];
 
   /* Reference to map without agents*/
-  #originalMap = [];
+  originalMap = [];
 
   /** List of delivery tiles locations*/
   deliveryTiles = [];
@@ -41,7 +41,7 @@ class DeliverooMap {
     this.width = 0;
     this.height = 0;
     this.map = [];
-    this.#originalMap = [];
+    this.originalMap = [];
     this.deliveryTiles = [];
     this.spawnTiles = [];
     this.mapBeliefSet = new Beliefset();
@@ -87,7 +87,7 @@ class DeliverooMap {
         // Initialize the map matrix
         matrix[x][y] = type;});
       this.map = matrix;
-      this.#originalMap = JSON.parse(JSON.stringify(matrix)); //Deep copy
+      this.originalMap = JSON.parse(JSON.stringify(matrix)); //Deep copy
   }
 
 
@@ -115,7 +115,7 @@ class DeliverooMap {
           const y = tile.y + dy;
             
           // Check bounds and if it's a spawn tile in original map
-          if (this.isInBounds({x, y}) && this.#originalMap[x][y] === 1) {
+          if (this.isInBounds({x, y}) && this.originalMap[x][y] === 1) {
             score++;
           }
         }
@@ -131,7 +131,7 @@ class DeliverooMap {
     for (let i = 0; i < this.width; i++) {
       for (let j = 0; j < this.height; j++) {
         if (this.map[i][j] == -1) { // If we had an agent here, reset
-          this.map[i][j] = this.#originalMap[i][j];
+          this.map[i][j] = this.originalMap[i][j];
         }
       }
     }

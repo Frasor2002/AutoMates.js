@@ -1,6 +1,7 @@
 import { Intention } from "./intention.js";
 import { myBelief } from "../belief/sensing.js";
 import { quickSort } from "./utils.js";
+import { envArgs } from "../connection/env.js";
 import { logger } from "../logger.js";
 
 
@@ -48,11 +49,18 @@ class IntentionRevision {
     while ( true ) {
       // If queue not empty
       if ( this.#intentionQueue.length > 0 ) {
-        logger.logDecisions(
-          Array.from(this.#intentionQueue.map(i=>i.predicate)),
-          "CURRENT INTENTIONS"
-        )
-        console.log( 'intentionRevision.loop', this.#intentionQueue.map(i=>i.predicate) );
+        
+        // If logger is acrive we log intentions
+        if(envArgs.logger){
+          logger.logDecisions(
+            Array.from(this.#intentionQueue.map(i=>i.predicate)),
+            "CURRENT INTENTIONS",
+            myBelief.time,
+            "frame"
+          )
+        }
+        
+        //console.log( 'intentionRevision.loop', this.#intentionQueue.map(i=>i.predicate) );
 
         // Get the current best intention
         const intention = this.#intentionQueue[0];
@@ -63,11 +71,12 @@ class IntentionRevision {
           continue;
         }
 
+        
         // Try to achieve intention
         await intention.achieve()
         // Catch failures and go on
         .catch( error => {
-          //console.log( 'Failed intention', intention.predicate, 'with error:', ...error )
+          console.log( 'Failed intention', intention.predicate, 'with error:', ...error )
         });
 
         // Delete intention
@@ -97,10 +106,11 @@ class IntentionRevision {
     let found = false;
 
     // Check if the intention is already present
+    
     for(let i = 0; i < this.#intentionQueue.length; i++){
       // The intent is found within the queue
-      if(this.#intentionQueue[i].predicate.type == predicate.type && 
-        JSON.stringify(this.#intentionQueue[i].predicate.target) == JSON.stringify(predicate.target)
+      if(this.#intentionQueue[i].predicate.type === predicate.type && 
+        JSON.stringify(this.#intentionQueue[i].predicate.target) === JSON.stringify(predicate.target)
       ) {
         this.#intentionQueue[i].predicate.priority = predicate.priority;
         found = true;
@@ -114,10 +124,11 @@ class IntentionRevision {
       this.#intentionQueue.push(intention);
     }
 
-    // Sort the list
+    // Sort the intention queue with quickSort
     this.#intentionQueue = quickSort(this.#intentionQueue);
+
     // If a better intent is found we have to stop last and start the new one
-    if ((last != null) && (JSON.stringify(last.predicate) !== JSON.stringify(this.#intentionQueue[0].predicate))) {
+    if ((last != null) && (JSON.stringify(this.#intentionQueue[0].predicate) !== JSON.stringify(last.predicate))) {
       last.stop();
     }
   }
