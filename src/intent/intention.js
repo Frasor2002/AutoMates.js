@@ -66,13 +66,13 @@ class Intention {
       if ( planClass.isApplicableTo( this.predicate ) ) {
         // We instantiate the plan
         this.#current_plan = new planClass(this.#parent);
-        //this.log('achieving intention', this.predicate, 'with plan', planClass.name);
+        //this.log('achieving intention', this.predicate.type, 'with plan', planClass.name);
         
         // Now we can execute the plan
         try {
           const plan_res = await this.#current_plan.execute( this.predicate );
 
-          //this.log( 'succesful intention', this.predicate, 'with plan', planClass.name, 'with result:', plan_res );
+          //this.log( 'succesful intention', this.predicate.type, 'with plan', planClass.name, 'with result:', plan_res );
           return plan_res
         // If we fail we can catch any error
         } catch (error) {

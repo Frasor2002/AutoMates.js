@@ -1,4 +1,4 @@
-import { priorityPickUp, priorityPutDown } from "./utils.js";
+import { priorityPickUp, priorityPutDown, getBestOption } from "./utils.js";
 import { myBelief } from "../belief/sensing.js";
 import { agent } from "../agent.js"
 import { envArgs } from "../connection/env.js";
@@ -15,8 +15,8 @@ function optionGeneration(){
   // Data structure to hold options
   const options = [];
 
-  //For now let's add options to pick up the sensed parce excluding that carried by others
-  // Also some parcel sometimes is without x or y and we will ignore it
+  // For now let's add options to pick up the sensed parcel excluding that carried by others
+  // Some parcel sometimes is corrupted without x or y and we will ignore it
   const parcels = myBelief.getParcels().filter(p => (!p.carriedBy || 
     p.carriedBy === myBelief.me.id) && p.x != null && p.y != null);
   
@@ -39,7 +39,9 @@ function optionGeneration(){
     const totalReward = carriedParcels.reduce((sum, p) => sum + p.reward, 0);
     
     // Generate an option for every delivery tile with different priority
-    for(const delivery of myBelief.map.deliveryTiles){
+    // Get only reachable delivery tiles for options
+    const deliveryTiles = myBelief.map.filterReachableTileLists(myBelief.me).deliveryTiles;
+    for(const delivery of deliveryTiles){
       const priority = priorityPutDown(delivery, totalReward);
       if(priority !== -Infinity){ // Save intention only if priority is higher than -Infinity
         options.push({type:"deliver", 
@@ -49,7 +51,7 @@ function optionGeneration(){
     }
   }
 
-  // If I do not have any parcel in my beliefSet we add an idle option
+  // Add an idle option with lowest possible priority
   options.push({type: "idle", priority: -Infinity});
 
 
@@ -61,13 +63,11 @@ function optionGeneration(){
   /*Option filtering*/
   let bestOption;
   if(options.length > 0){
-    bestOption = options.reduce((best, current) => 
-      current.priority > best.priority ? current : best
-    );
+    bestOption = getBestOption(options);
   }
   
 
-  // If we have a best option pass It to the intent revision
+  // If we have a best option push It to intent revision
   if(bestOption){
     agent.intentionRevision.push(bestOption);
   }

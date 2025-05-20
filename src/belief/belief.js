@@ -76,7 +76,7 @@ class Belief {
    */
   updateParcels(sensed_parcels){
     //Take the current time
-    const currTime = Date.now();
+    const currTime = this.time.ms;
     //Create a structure to store the new parcels
     const updatedParcel = new Map();
 
@@ -119,7 +119,7 @@ class Belief {
     this.map.clearMap();
     for(const a of sensed_agents){
       //Add timestamp
-      a.timestamp = Date.now();
+      a.timestamp = this.time.ms;
 
       // If agent isn't already saved, save it
       if(!this.agentBelief.has(a.id)){
@@ -159,7 +159,7 @@ class Belief {
    */
   getAgents(){
     return Array.from(this.agentBelief.values()).filter(a => {
-      return Date.now() - a.timestamp < 2 * this.config.MOVEMENT_DURATION});
+      return this.time.ms - a.timestamp < this.config.MOVEMENT_DURATION});
   }
 
 

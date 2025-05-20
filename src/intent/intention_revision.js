@@ -18,7 +18,7 @@ class IntentionRevision {
 
   /**
    * Check if current intention is still valid returning True or False
-   * @param {Object} intention 
+   * @param {Object} intention intention to check
    */
   isIntentionValid(intention) {
     // Get parcels in belief
@@ -36,7 +36,7 @@ class IntentionRevision {
       return parcels.filter(p => p.carriedBy === myBelief.me.id).length > 0;
     }
 
-    // Otherwise we idle
+    // Otherwise its valid
     return true;
   }
 
@@ -60,7 +60,7 @@ class IntentionRevision {
           )
         }
         
-        //console.log( 'intentionRevision.loop', this.#intentionQueue.map(i=>i.predicate) );
+        console.log( 'intentionRevision.loop', this.#intentionQueue.map(i=>i.predicate.type) );
 
         // Get the current best intention
         const intention = this.#intentionQueue[0];
@@ -76,7 +76,7 @@ class IntentionRevision {
         await intention.achieve()
         // Catch failures and go on
         .catch( error => {
-          console.log( 'Failed intention', intention.predicate, 'with error:', ...error )
+          console.log( 'Failed intention', intention.predicate.type , 'with error:', ...error )
         });
 
         // Delete intention
@@ -128,7 +128,8 @@ class IntentionRevision {
     this.#intentionQueue = quickSort(this.#intentionQueue);
 
     // If a better intent is found we have to stop last and start the new one
-    if ((last != null) && (JSON.stringify(this.#intentionQueue[0].predicate) !== JSON.stringify(last.predicate))) {
+    if ((last != null) &&
+      (JSON.stringify(this.#intentionQueue[0].predicate) !== JSON.stringify(last.predicate))) {
       last.stop();
     }
   }

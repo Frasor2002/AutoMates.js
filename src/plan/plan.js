@@ -6,7 +6,6 @@ import { client } from "../connection/connection.js";
 import { readFile } from "./utils.js";
 import { envArgs } from "../connection/env.js";
 import { logger } from "../logger.js";
-import { optionGeneration } from "../intent/options.js";
 
 //Get domain for pddl planning
 const domain = await readFile("./src/plan/domain.pddl")
@@ -75,16 +74,19 @@ class MoveTo extends Plan {
     // While not arrived
     while(myBelief.me.x !== predicate.target.x || myBelief.me.y !== predicate.target.y)
     {
-      if ( this.stopped ) throw ['stopped']; // if stopped then quit
+      if ( this.stopped ) throw ['stopped']; // If stopped then quit
 
-      // Get a path
+      // Get a path to avoid obstacles now
       const path = aStar(myBelief.me, predicate.target, myBelief.map);
       
-      // Empty path
-      if(path.length === 0){
+      // Blocked path
+      if(path === false){
         throw ["failed"];
+
       }
-      // Get a move and move in that direction
+
+
+      // Get a move from the path
       const move = path[0];
 
       // If logger active, log current movement
@@ -92,9 +94,10 @@ class MoveTo extends Plan {
         logger.logOthers(`Current move: ${JSON.stringify(move)}`, myBelief.time, "frame")
       }
 
-      if ( this.stopped ) throw ['stopped']; // if stopped then quit
+      // Move agent
+      if ( this.stopped ) throw ['stopped']; // If stopped then quit
       await client.emitMove(move);
-      if ( this.stopped ) throw ['stopped']; // if stopped then quit
+      if ( this.stopped ) throw ['stopped']; // If stopped then quit
       await new Promise(res => setImmediate(res));
     }
     
@@ -116,7 +119,7 @@ class PDDLMoveTo extends Plan {
    * Execute the plan
    */
   async execute ( predicate ) {
-    if ( this.stopped ) throw ['stopped']; // if stopped then quit
+    if ( this.stopped ) throw ['stopped']; // If stopped then quit
 
     const agentName = "me";
     const currentTile = `t_${myBelief.me.x}_${myBelief.me.y}`;
@@ -152,22 +155,22 @@ class PDDLMoveTo extends Plan {
     const plan = await onlineSolver(domain, problem);
     let path = [];
     if (plan != null){
-      console.log(plan)
       path = plan.map(step => step.action.toLowerCase());
     }else { // No plan created
       throw ['failed'];
     }
     
-    if ( this.stopped ) throw ['stopped']; // if stopped then quit
-    
+    if ( this.stopped ) throw ['stopped']; // If stopped then quit
+
+    // Since its costly to regenerate path till we reach the goal we will keep our path
+    // and wait to move until to agent blocks us
     for(const move of path){
+        if ( this.stopped ) throw ['stopped']; // If stopped then quit
+
       // If log is active, log current movement
       if(envArgs.logger){
         logger.logOthers(`Current move: ${JSON.stringify(move)}`, myBelief.time, "frame")
       }
-
-      if ( this.stopped ) throw ['stopped']; // if stopped then quit
-      // We must try to avoid other agents
 
       // First get next position
       let nextPos = {x:myBelief.me.x, y:myBelief.me.y};
@@ -190,7 +193,7 @@ class PDDLMoveTo extends Plan {
         }
       };
 
-      while(!myBelief.map.isWalkable(nextPos)){
+      while(!myBelief.map.isWalkable(nextPos)){ // While agent blocks us we wait
         await new Promise(res => setTimeout(res, myBelief.config.MOVEMENT_DURATION));
         await new Promise(res => setImmediate(res));
       }
@@ -228,7 +231,7 @@ class PickUp extends Plan {
   async execute ( predicate ) {
     if ( this.stopped ) throw ['stopped']; // if stopped then quit
     await this.subIntention( {type: "moveTo", target: {x: predicate.target.x, 
-      y: predicate.target.y}} );
+      y: predicate.target.y, entity: "parcel"}} );
     if ( this.stopped ) throw ['stopped']; // if stopped then quit
     await client.emitPickup();
     if ( this.stopped ) throw ['stopped']; // if stopped then quit
@@ -255,7 +258,7 @@ class Deliver extends Plan {
   async execute ( predicate ) {
     if ( this.stopped ) throw ['stopped']; // if stopped then quit
     await this.subIntention( {type: "moveTo", target: {x: predicate.target.x, 
-      y: predicate.target.y}}, client );
+      y: predicate.target.y, entity: "delivery"}}, client );
     if ( this.stopped ) throw ['stopped']; // if stopped then quit
     await client.emitPutdown();
     if ( this.stopped ) throw ['stopped']; // if stopped then quit
@@ -276,69 +279,38 @@ class Idle extends Plan {
    * Execute the plan
    */
   async execute ( predicate ) {
-    if (this.stopped) throw ['stopped']; // if stopped then quit
+    if (this.stopped) throw ['stopped']; // If stopped then quit
 
-    const currentPos = { x: myBelief.me.x, y: myBelief.me.y };
+    // Get reachable spawn tiles (reachable not considering agents)
+    const spawnTiles = myBelief.map.filterReachableTileLists(myBelief.me, true).spawnTiles;
 
-    // Get current score based on tile agent is on
-    let currScore = 0;
-    const currentTile = myBelief.map.spawnTiles.find(
-      t => t.x === currentPos.x && t.y === currentPos.y
-    );
-    if (currentTile) { // If we are on a spawn tile set spawn tile score
-      currScore = currentTile.score;
+    // If no reachable spawn tiles, stay put
+    if (spawnTiles.length === 0) {
+      return true;
     }
 
-    // Check if we're in a high-scoring area but no parcels are around
-    const shouldExplore = currScore > 3 && Math.random() < 0.6; // 30% chance to explore from high-score areas
+    // Sort by score descending and take top n
+    const bestSpawns = spawnTiles
+    .filter(spawn => {
+      if (spawn.x === myBelief.me.x && spawn.y === myBelief.me.y) return false // Not my position
+      return true
+    })
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 10);
+    // Case where we have less bestSpawns, we just use the spawnTiles
+    const candidates = bestSpawns.length > 0 ? bestSpawns : spawnTiles;
 
-    const candidateSpawns = myBelief.map.spawnTiles
-      .filter(spawn => {
-        // Exclude current position
-        if (spawn.x === currentPos.x && spawn.y === currentPos.y) return false;
-        
-        // If we're exploring, consider all walkable spawn tiles
-        if (shouldExplore) {
-          return myBelief.map.isWalkable(spawn);
-        }
-        // Otherwise only consider tiles with higher score
-        if (spawn.score <= currScore) return false;
-        
-        // Check if tile is walkable (not occupied)
-        return myBelief.map.isWalkable(spawn);
-      })
-      .map(spawn => ({
-        point: spawn,
-        distance: aStar(currentPos, spawn, myBelief.map).length,
-        score: spawn.score
-      }))
-      .filter(spawn => spawn.distance > 0) // Exclude unreachable targets
-      .sort((a, b) => {
-        if (a.distance !== b.distance) return a.distance - b.distance;
-        return b.score - a.score;
-      });
+    // Random selection of one of the candidates
+    const randomIndex = Math.floor(Math.random() * candidates.length);
+    const target = candidates[randomIndex];
 
-      // If no candidates found, stay put
-      if (candidateSpawns.length === 0) {
-        return true;
-      }
 
-      // Select target based on mode
-      let target;
-      if (shouldExplore) {
-        // When exploring, give some randomness to the selection
-        const topCandidates = candidateSpawns.slice(0, 3); // Consider top 3 candidates
-        target = topCandidates[Math.floor(Math.random() * topCandidates.length)].point;
-      } else {
-        // Normal behavior: select the nearest highest-scoring tile
-        target = candidateSpawns[0].point;
-      }
+    if (this.stopped) throw ['stopped'];
+    await this.subIntention({ type: "moveTo", target: {x: target.x, 
+    y: target.y, entity: "spawn"} });
+    if (this.stopped) throw ['stopped'];
 
-      if (this.stopped) throw ['stopped'];
-      await this.subIntention({ type: "moveTo", target: target });
-      if (this.stopped) throw ['stopped'];
-
-      return true;
+    return true;
   }
 
 }

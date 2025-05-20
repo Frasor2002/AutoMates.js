@@ -2,33 +2,27 @@
 import { aStar } from "./astar.js";
 import { myBelief } from "../belief/sensing.js";
 
-
 /**
  * Compute priority of pickup intent based on:
  * - Distance
  * - Reward
  * - If its lost or not
- * @param {Object} parcel 
+ * @param {Object} parcel parcel of which to get priority score
+ * @returns priority of picking up
  */
 function priorityPickUp(parcel) {
-  // Sometimes the agent sees parcel that are out of bounds, in that case we filter them out
-  if(parcel.x === undefined || parcel.y === undefined){
-    //console.log(parcel)
-    return -Infinity
-  }
-
   // Calculate distance to parcel using A*
-  const distance = aStar(myBelief.me, parcel, myBelief.map).length;
-    
-  // If parcel not reachable
-  if(distance == 0) return -Infinity;
+  const path = aStar(myBelief.me, parcel, myBelief.map);
+  if(!path){ // If path is blocked
+    return -Infinity; // Return lowest possible score (option will be discarded)
+  }
+  const distance = path.length;
+  // Get how much reward is lost when parcel is reached
+  const timeToMove = distance * myBelief.config.MOVEMENT_DURATION;
+  const rewardLoss = timeToMove / myBelief.config.PARCEL_DECADING_INTERVAL;
   
-  // Base score is the reward value
-  let priority = parcel.reward;
-  
-  // Apply distance penalty (the farther away, the lower the score)
-  // * 10 is to have numbers > 0
-  priority /= (distance) * 10;
+  // Priority is remaining reward when parcel is reached
+  let priority = parcel.reward - rewardLoss;
 
   // Check if other agents are nearby the parcel
   const nearbyAgentThreshold = distance; // # tiles of tollerance
@@ -37,10 +31,16 @@ function priorityPickUp(parcel) {
     if (agent.id !== myBelief.me.id) { // Skip self
 
       const agentCoord = {x: Math.round(agent.x), y: Math.round(agent.y)}
-      const agentDistance = aStar(agentCoord, parcel, myBelief.map).length;
+      // Get agent distance to parcel without considering other agents
+      const agentPath = aStar(agentCoord, parcel, myBelief.map, true);
+      let agentDistance = Infinity; // If parcel not reachable for agent he is infinitely distant
+      if(agentPath){
+        agentDistance = agentPath.length;
+      }
 
+      // If agent is closer than a threshold we greatly reduce priority of the parcel
       if (agentDistance < nearbyAgentThreshold) {
-        priority *= 0.9;
+        priority /= 2;
         // Stop at first agent near found
         break;
       }
@@ -55,13 +55,36 @@ function priorityPickUp(parcel) {
 /**
  * Function to return the delivery tile utility
  * @param {Object} delivery delivery tile
- * @param {Number} totalReward reward of currently carried parcels 
+ * @param {Number} totalReward reward of currently carried parcels
+ * @returns priority of delivery
  */
 function priorityPutDown(delivery, totalReward){
-  const distance = aStar(myBelief.me, delivery, myBelief.map).length;
-  if (distance === 0) return -Infinity; // No path or already on delivery tile
+  const path = aStar(myBelief.me, delivery, myBelief.map, true);
+  if(!path){ // Blocked path
+    return -Infinity; // Return lowest possible priority
+  }
+  // Compute how much reward is lost when moving to delivery
+  const distance = path.length;
+  const timeToMove = distance * myBelief.config.MOVEMENT_DURATION;
+  const rewardLoss = timeToMove / myBelief.config.PARCEL_DECADING_INTERVAL;
+  // Remaining reward when delivery is reached multiplied by a scalar factor
+  const priority = (totalReward - rewardLoss);
 
-  return totalReward * 10 / (distance*10); // Same formula of priorityPickUp with a higher reward
+  return priority; 
+}
+
+/**Given options return the best possible one with option filtering
+ * @param {Array} options list of options generated
+ * @returns best option object 
+ */
+function getBestOption(options){
+  let bestOption;
+  // Get best option according to priority
+  bestOption = options.reduce((best, current) => 
+    current.priority > best.priority ? current : best
+  );
+
+  return bestOption;
 }
 
 
@@ -107,4 +130,4 @@ function quickSort(arr) {
 
 
 
-export {priorityPickUp, priorityPutDown, quickSort};
+export {priorityPickUp, priorityPutDown, getBestOption, quickSort};

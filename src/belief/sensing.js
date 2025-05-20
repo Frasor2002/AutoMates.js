@@ -33,6 +33,7 @@ client.onYou((me,time) => {
 // Collect map information
 client.onMap((nrow, ncol, tiles) => {
   myBelief.map.initMatrix(nrow, ncol, tiles);
+  myBelief.map.initSpawnType(tiles);
   myBelief.map.initTileLists(tiles);
 
   // Log map information, through the game if logger is active

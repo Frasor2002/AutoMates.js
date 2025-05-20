@@ -15,7 +15,7 @@ function manhDistance(p1, p2){ return Math.abs(p1.x - p2.x) + Math.abs(p1.y - p2
  * @param {Object} cameFrom 
  * @param {String} currentKey 
  * @param {String} startKey 
- * @returns 
+ * @returns recunstructed path
  */
 function reconstructPath(cameFrom, currentKey, startKey) {
   const path = [];
@@ -35,14 +35,21 @@ function reconstructPath(cameFrom, currentKey, startKey) {
 
 /**
  * Function to compute A* Search and return the path
- * @param {Object} start 
- * @param {Object} goal 
- * @param {DeliverooMap} deliverooMap 
+ * @param {Object} start starting position (agent position)
+ * @param {Object} goal goal position
+ * @param {DeliverooMap} deliverooMap belief of the map
+ * @param {Boolean} original bool to decide if we use map without agents or with agents
+ * @returns false if path blocked or an array of moves to do
  */
-function aStar(start, goal, deliverooMap){
-  // If goal not reachable
-  if(!deliverooMap.isWalkable(goal)){
+function aStar(start, goal, deliverooMap, original=false){
+  // If already at goal return an empty path
+  if(start.x === goal.x && start.y === goal.y){
     return [];
+  }
+
+  // If goal not reachable return false
+  if(!deliverooMap.isWalkable(goal, original)){
+    return false;
   }
 
   // Define function to get heuristic
@@ -105,7 +112,7 @@ function aStar(start, goal, deliverooMap){
 
 
       // Skip if not walkable
-      if (!deliverooMap.isWalkable({x:neighborX, y:neighborY})) {
+      if (!deliverooMap.isWalkable({x:neighborX, y:neighborY}, original)) {
         continue;
       }
 
@@ -125,8 +132,8 @@ function aStar(start, goal, deliverooMap){
     }
   }
 
-  // If we explored everything but did not reach the goal
-  return [];
+  // If we explored everything but did not reach the goal return false
+  return false;
 }
 
 
