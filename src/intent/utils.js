@@ -73,6 +73,55 @@ function priorityPutDown(delivery, totalReward){
   return priority; 
 }
 
+/**
+ * Generate possible intentions given belief set and current agent information
+ * @param {Object} me agent information
+ * @param {Object} bs beliefset
+ */
+function getOptions(me, bs){
+  // Data structure to hold options
+  const options = [];
+  /*
+  // For now let's add options to pick up the sensed parcel excluding that carried by others
+  // Some parcel sometimes is corrupted without x or y and we will ignore it
+  const parcels = bs.getParcels().filter(p => (!p.carriedBy || 
+    p.carriedBy === myBelief.me.id) && p.x != null && p.y != null);
+  
+  for(const p of parcels){
+    if(!p.carriedBy){ // Parcel not carried by me
+      const priority = priorityPickUp(p);
+      if(priority !== -Infinity){ // If option is different from -Infinity
+        // Add a new option for the agent
+        options.push({type: "pickUp", 
+          target: {x: p.x, y: p.y, id: p.id}, 
+          priority: priorityPickUp(p)});
+        }
+    }
+  }
+
+  // If I am carryig a parcel
+  const carriedParcels = parcels.filter(p => p.carriedBy === myBelief.me.id); 
+  if(carriedParcels.length > 0){
+    // Total reward of carried parcels
+    const totalReward = carriedParcels.reduce((sum, p) => sum + p.reward, 0);
+    
+    // Generate an option for every delivery tile with different priority
+    // Get only reachable delivery tiles for options
+    const deliveryTiles = myBelief.map.filterReachableTileLists(myBelief.me).deliveryTiles;
+    for(const delivery of deliveryTiles){
+      const priority = priorityPutDown(delivery, totalReward);
+      if(priority !== -Infinity){ // Save intention only if priority is higher than -Infinity
+        options.push({type:"deliver", 
+          target: {x: delivery.x, y: delivery.y}, 
+          priority: priorityPutDown(delivery, totalReward)});
+      }
+    }
+  }
+
+  // Add an idle option with lowest possible priority
+  options.push({type: "idle", priority: -Infinity});*/
+}
+
 /**Given options return the best possible one with option filtering
  * @param {Array} options list of options generated
  * @returns best option object 
@@ -130,4 +179,4 @@ function quickSort(arr) {
 
 
 
-export {priorityPickUp, priorityPutDown, getBestOption, quickSort};
+export {priorityPickUp, priorityPutDown, getOptions, getBestOption, quickSort};

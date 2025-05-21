@@ -1,4 +1,4 @@
-import { priorityPickUp, priorityPutDown, getBestOption } from "./utils.js";
+import { priorityPickUp, priorityPutDown, getOptions, getBestOption } from "./utils.js";
 import { myBelief } from "../belief/sensing.js";
 import { agent } from "../agent.js"
 import { envArgs } from "../connection/env.js";
@@ -9,7 +9,6 @@ import { logger } from "../logger.js";
  * for the agent to fulfill
  */
 function optionGeneration(){
-
   /*Option generation*/
 
   // Data structure to hold options
