@@ -129,7 +129,7 @@ class DeliverooMap {
 
     // Spawn tiles also need a score to let us know where is best to go during idle
     this.spawnTiles = tiles.filter(t => t.type == 1).map(t => ({ x: t.x, y: t.y, 
-      score: this.getSpawnScore(t)}));
+      score: this.getSpawnScore(t), lastSeen: 0, bonusScore: 0}));
   }
 
   /**Get spawn tile by how many spawnable tiles are nearby
@@ -350,6 +350,62 @@ class DeliverooMap {
         }
       }
     }
+  }
+
+  /** idk laugh */
+  updateSpawnLastSeen(time,x,y){
+    if(x%1!==0 || y%1!==0){return}
+
+    for(let spawn in this.spawnTiles){
+      let dx = Math.abs(this.spawnTiles[spawn].x - x);
+      let dy = Math.abs(this.spawnTiles[spawn].y - y);
+      if(dx+dy < this.POD){
+        this.spawnTiles[spawn].lastSeen = time.frame;
+      }
+    }
+  }
+
+  //** why the fuck this doesn't get called */
+  updateBonus(){
+    let max = 0;
+    let min = 0;
+
+    for (let i in this.spawnTiles) {
+      if (this.spawnTiles[i].lastSeen > this.spawnTiles[max].lastSeen) {
+        max = i;
+      }
+      if (this.spawnTiles[i].lastSeen < this.spawnTiles[min].lastSeen) {
+        min = i;
+      }
+    }
+
+    let diff = this.spawnTiles[max].lastSeen - this.spawnTiles[min].lastSeen;
+    console.log(`MAX: ${this.spawnTiles[max].lastSeen}, MIN: ${this.spawnTiles[min].lastSeen}`)
+
+    let minBonus = 1000;
+    let maxBonus = 0;
+
+    for(let i in this.spawnTiles) {
+      //console.log(JSON.stringify(this.spawnTiles[i]))
+      let idiff = this.spawnTiles[max].lastSeen - this.spawnTiles[i].lastSeen ;
+      //15 is heuristic
+
+      let tempPOD = this.POD == Infinity ? this.originalMap.length : this.POD;
+      let bonus = (2 * Math.pow(tempPOD,2) + 2 * tempPOD + 1) * (idiff/diff);
+      this.spawnTiles[i].bonusScore = Math.floor(bonus)
+
+      if(minBonus > this.spawnTiles[i].bonusScore){
+        minBonus = this.spawnTiles[i].bonusScore;
+      }
+
+      if(maxBonus < this.spawnTiles[i].bonusScore){
+        maxBonus = this.spawnTiles[i].bonusScore;
+      }
+    }
+    
+    console.log(`MAX: ${maxBonus}, MIN: ${minBonus}`)
+
+    return `DIFF: ${diff}`
   }
 
 

@@ -21,6 +21,7 @@ client.onConfig((config) => {
 // Collect my agent information
 client.onYou((me,time) => {
   myBelief.updateMe(me, time);
+  myBelief.map.updateSpawnLastSeen(time,me.x,me.y);
 
   // Log my agent information therough the game if logger is active
   if(envArgs.logger){
