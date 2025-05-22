@@ -76,6 +76,7 @@ class MoveTo extends Plan {
     {
       if ( this.stopped ) throw ['stopped']; // If stopped then quit
 
+
       // Get a path to avoid obstacles now
       const path = aStar(myBelief.me, predicate.target, myBelief.map);
       
@@ -300,7 +301,7 @@ class Idle extends Plan {
     .sort((a, b) => b.score + b.bonusScore - a.score - a.bonusScore)
     .slice(0, 10);
 
-    console.log(bestSpawns);
+    //console.log(bestSpawns);
     // Case where we have less bestSpawns, we just use the spawnTiles
     const candidates = bestSpawns.length > 0 ? bestSpawns : spawnTiles;
 

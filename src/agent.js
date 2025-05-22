@@ -1,17 +1,19 @@
 import { myBelief } from "./belief/sensing.js";
 import {IntentionRevision} from "./intent/intention_revision.js"
-import { optionGeneration } from "./intent/options.js";
+import { optionHandling } from "./intent/options.js";
 import { handshake, friendInfo, sendState} from "./collaboration/comunication.js";
 import { envArgs } from "./connection/env.js";
 
 class Agent {
   belief = myBelief;
+  options = [];
+  bestOption;
   intentionRevision = new IntentionRevision();
   
   async run() {
     // Wait for connection
+    console.log("Waiting for game to start...");
     while(!this.belief.me.id){
-      console.log("Waiting for game to start...");
       await new Promise(res => setImmediate(res));
     }
 
@@ -26,19 +28,12 @@ class Agent {
         process.exit(1);
       }
     }
-    
+
     // Intention revision loop
     this.intentionRevision.loop();
 
     // Option generation
-    setInterval(optionGeneration, 500);
-
-    
-    // If in multiagent case, send beliefset to teammate
-    if(envArgs.mode == "multi"){
-      setInterval(async () => {await sendState(friendInfo, myBelief)}, 500);
-      // Check if nothing is coming, no longer do multi
-    }
+    setInterval(optionHandling, 1000);
   }
 }
 

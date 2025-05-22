@@ -1,76 +1,42 @@
-import { priorityPickUp, priorityPutDown, getOptions, getBestOption } from "./utils.js";
+import { generateOptions, filterOptions } from "./utils.js";
 import { myBelief } from "../belief/sensing.js";
 import { agent } from "../agent.js"
 import { envArgs } from "../connection/env.js";
 import { logger } from "../logger.js";
+import { friendInfo, sendState } from "../collaboration/comunication.js";
+
 
 /**
- * Function that when receiving new sensing generates a new option
- * for the agent to fulfill
- */
-function optionGeneration(){
-  /*Option generation*/
+ * Function that at regular intervals creates new intentions given beliefs
+*/
+async function optionHandling(){
+  // If in multiagent mode we send our belief to other agent
+  if(envArgs.mode == "multi"){
+    // Every time agent information is updated we send state
+    // Prepare a light object to send to other agent
+    const myState = {me: myBelief.me, time: myBelief.time, 
+      parcelBelief: myBelief.parcelBelief, agentBelief: myBelief.agentBelief};
+    await sendState(friendInfo, myState);
+    // Reaction to message in communication.js
+  } else {
+    // Solo agent
+    // Option generation
+    agent.options = generateOptions(myBelief);
 
-  // Data structure to hold options
-  const options = [];
-
-  // For now let's add options to pick up the sensed parcel excluding that carried by others
-  // Some parcel sometimes is corrupted without x or y and we will ignore it
-  const parcels = myBelief.getParcels().filter(p => (!p.carriedBy || 
-    p.carriedBy === myBelief.me.id) && p.x != null && p.y != null);
-  
-  for(const p of parcels){
-    if(!p.carriedBy){ // Parcel not carried by me
-      const priority = priorityPickUp(p);
-      if(priority !== -Infinity){ // If option is different from -Infinity
-        // Add a new option for the agent
-        options.push({type: "pickUp", 
-          target: {x: p.x, y: p.y, id: p.id}, 
-          priority: priorityPickUp(p)});
-        }
+    // If logger is active, log decisions of the agent
+    if(envArgs.logger){
+      logger.logDecisions(agent.options,"GENERATED OPTIONS", myBelief.time, "frame")
     }
-  }
 
-  // If I am carryig a parcel
-  const carriedParcels = parcels.filter(p => p.carriedBy === myBelief.me.id); 
-  if(carriedParcels.length > 0){
-    // Total reward of carried parcels
-    const totalReward = carriedParcels.reduce((sum, p) => sum + p.reward, 0);
+    // Option filtering
+    agent.bestOption = filterOptions(agent.options);
     
-    // Generate an option for every delivery tile with different priority
-    // Get only reachable delivery tiles for options
-    const deliveryTiles = myBelief.map.filterReachableTileLists(myBelief.me).deliveryTiles;
-    for(const delivery of deliveryTiles){
-      const priority = priorityPutDown(delivery, totalReward);
-      if(priority !== -Infinity){ // Save intention only if priority is higher than -Infinity
-        options.push({type:"deliver", 
-          target: {x: delivery.x, y: delivery.y}, 
-          priority: priorityPutDown(delivery, totalReward)});
-      }
-    }
+
+    // If we have a best option push It to intent revision
+    agent.intentionRevision.push(agent.bestOption);
   }
 
-  // Add an idle option with lowest possible priority
-  options.push({type: "idle", priority: -Infinity});
-
-
-  // If logger is active, log decisions of the agent
-  if(envArgs.logger){
-    logger.logDecisions(options,"GENERATED OPTIONS", myBelief.time, "frame")
-  }
-
-  /*Option filtering*/
-  let bestOption;
-  if(options.length > 0){
-    bestOption = getBestOption(options);
-  }
   
-
-  // If we have a best option push It to intent revision
-  if(bestOption){
-    agent.intentionRevision.push(bestOption);
-  }
-
 }
 
-export {optionGeneration};
+export {optionHandling};

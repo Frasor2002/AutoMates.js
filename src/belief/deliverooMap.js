@@ -380,7 +380,7 @@ class DeliverooMap {
     }
 
     let diff = this.spawnTiles[max].lastSeen - this.spawnTiles[min].lastSeen;
-    console.log(`MAX: ${this.spawnTiles[max].lastSeen}, MIN: ${this.spawnTiles[min].lastSeen}`)
+    //console.log(`MAX: ${this.spawnTiles[max].lastSeen}, MIN: ${this.spawnTiles[min].lastSeen}`)
 
     let minBonus = 1000;
     let maxBonus = 0;
@@ -403,7 +403,7 @@ class DeliverooMap {
       }
     }
     
-    console.log(`MAX: ${maxBonus}, MIN: ${minBonus}`)
+    //console.log(`MAX: ${maxBonus}, MIN: ${minBonus}`)
 
     return `DIFF: ${diff}`
   }
