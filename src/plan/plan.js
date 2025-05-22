@@ -289,14 +289,18 @@ class Idle extends Plan {
       return true;
     }
 
+    myBelief.map.updateBonus();
+
     // Sort by score descending and take top n
     const bestSpawns = spawnTiles
     .filter(spawn => {
       if (spawn.x === myBelief.me.x && spawn.y === myBelief.me.y) return false // Not my position
       return true
     })
-    .sort((a, b) => b.score - a.score)
+    .sort((a, b) => b.score + b.bonusScore - a.score - a.bonusScore)
     .slice(0, 10);
+
+    console.log(bestSpawns);
     // Case where we have less bestSpawns, we just use the spawnTiles
     const candidates = bestSpawns.length > 0 ? bestSpawns : spawnTiles;
 
