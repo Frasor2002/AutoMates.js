@@ -8,4 +8,4 @@ async function main() {
 
 
 main()
-.catch( (err) => {console.error(err.message);})
+.catch( (err) => {console.error(err);})

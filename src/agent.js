@@ -33,7 +33,11 @@ class Agent {
     this.intentionRevision.loop();
 
     // Option generation
-    setInterval(optionHandling, 1000);
+    let interval = 50;
+    if(envArgs.mode=="multi"){
+      interval = 1000;
+    }
+    setInterval(optionHandling, interval);
   }
 }
 

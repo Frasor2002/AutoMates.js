@@ -216,7 +216,7 @@ class DeliverooMap {
   clearMap() {
     for (let i = 0; i < this.width; i++) {
       for (let j = 0; j < this.height; j++) {
-        if (this.map[i][j] == -1) { // If we had an agent here, reset
+        if (this.map[i][j] == -1 || this.map[i][j] == -2) { // If we had an agent here, reset
           this.map[i][j] = this.originalMap[i][j];
         }
       }
@@ -224,13 +224,14 @@ class DeliverooMap {
   }
 
   /**
-   * Set position of enemy agent on the map given a position
+   * Set position of enemy agent or obstacle on the map given a position
    * @param {Object} pos 
+   * @param {number} [value=-1] value to put in the cell
    */
-  updateMap(pos) {
+  updateMap(pos, value=-1) {
     //Check if position is valid (in bounds)
     if(this.isInBounds(pos)){
-      this.map[pos.x][pos.y] = -1;
+      this.map[pos.x][pos.y] = value;
     }
   }
   
@@ -352,7 +353,13 @@ class DeliverooMap {
     }
   }
 
-  /** idk laugh */
+  /**
+   * Update the spawn score
+   * @param {*} time 
+   * @param {*} x 
+   * @param {*} y 
+   * @returns 
+   */
   updateSpawnLastSeen(time,x,y){
     if(x%1!==0 || y%1!==0){return}
 
@@ -365,7 +372,10 @@ class DeliverooMap {
     }
   }
 
-  //** why the fuck this doesn't get called */
+  /**
+   * Update bonus computation of tiles
+   * @returns 
+   */
   updateBonus(){
     let max = 0;
     let min = 0;

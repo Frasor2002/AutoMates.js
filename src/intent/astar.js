@@ -98,7 +98,7 @@ function aStar(start, goal, deliverooMap, original=false){
 
     // When goal is reached reconstruct the path
     if (currentPos.x === goal.x && currentPos.y === goal.y) {
-        return reconstructPath(cameFrom, currentKey, startKey);
+      return reconstructPath(cameFrom, currentKey, startKey);
     }
 
     // Remove current node from set
@@ -137,4 +137,40 @@ function aStar(start, goal, deliverooMap, original=false){
 }
 
 
-export {aStar};
+/**Convert from path with directions to positions
+ * @param {Object} start start position
+ * @param {Array} path path array
+ */
+function fromPathToPositions(start, path){
+  const positions = [];
+  let current = start;
+
+  for(const move of path){
+    // First get next position
+    let nextPos = {x:current.x, y:current.y};
+    switch(move){
+      case "left":{
+        nextPos.x--;
+        break;
+      }
+      case "right":{
+        nextPos.x++;
+        break;
+      }
+      case "up":{
+        nextPos.y++;
+        break;
+      }
+      case "down":{
+        nextPos.y--;
+        break;
+      }
+    };
+    positions.push(nextPos);
+    current = nextPos;
+  }
+  return positions;
+}
+
+
+export {aStar, fromPathToPositions};

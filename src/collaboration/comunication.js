@@ -1,9 +1,11 @@
 import { client } from "../connection/connection.js";
 import { myBelief } from "../belief/sensing.js";
 import { simpleEncription, simpleDecription, checkMessage } from "./encription.js";
-import { templates, multiOptionHandling, compareBestOptions } from "./utils.js";
+import { templates, multiOptionHandling, compareBestOptions, solveAlleyway } from "./utils.js";
 import { agent } from "../agent.js";
 import { filterOptions } from "../intent/utils.js";
+import { aStar } from "../intent/astar.js";
+import { getIdleTarget } from "../plan/utils.js";
 
 // Save the data of our teammate
 let friendInfo = {};
@@ -90,27 +92,20 @@ client.onMsg(async (id, name, msg, reply) => {
   if(id === friendInfo.id && checkMessage(msg, templates.INFORM_STATE_TEMPLATE)){
     // Get score from teammate
     friendInfo.score = msg.state.me.score;
-    //console.log("INFORM from", name);
-    //console.log(msg);
+
     // Merge belief states
     myBelief.merge(msg.state);
-
-    // Here we merge bs
-    // Compute options for me and other agent
-    // compare best options and decide how to coordinate
-    // if both idle ok
-    // if both deliver if the delivery is different ok
-    // if both delivery and the delivery is the same change deliver for lower priority (if same sum name characters and higher changes)
-    // if both pickup different parcel ok
-    // if both pickup same decide on priority if same decide on sum of name
-    // if no spawn or no delivery => alleway logic
 
     // Check if we are in alleyway case
     const tiles = myBelief.map.filterReachableTileLists(myBelief.me);
     //console.log(tiles.spawnTiles, tiles.deliveryTiles)
     //console.log(tiles.spawnTiles.length === 0, tiles.deliveryTiles.length === 0)
-    if(tiles.spawnTiles.length === 0 || tiles.deliveryTiles.length === 0){
+    // Add another check for specific case
+    if((tiles.spawnTiles.length === 0 && tiles.deliveryTiles.length === 1) || 
+    (tiles.deliveryTiles.length === 0 && tiles.spawnTiles.length === 1)){
+      console.log(tiles.spawnTiles, tiles.deliveryTiles)
       console.log("Alleyway case!")
+      solveAlleyway(agent, myBelief, friendInfo);
     } else { // Normal case
       await multiOptionHandling(agent, myBelief, friendInfo);
     }
@@ -119,24 +114,45 @@ client.onMsg(async (id, name, msg, reply) => {
   } else if(reply && id === friendInfo.id && checkMessage(msg, templates.INFORM_INTENT_TEMPLATE)){
     // Here is the Evaluator that will tell the proposer if the option must be changed or not
     const res = compareBestOptions(msg.intent, agent.bestOption);
-    //console.log(msg, res);
-    if(res.change1){ // Other agent needs to change intention
-      console.log(friendInfo.name + "needs to change intent");
-      const response = {msg: templates.INFORM_INTENT_CHANGE_TEMPLATE};
-      try{ reply(response) } catch{ (err) => console.error(err) };
-    }else if(res.change2){
-      console.log("I will change intent")
-      // Let's update our bestOption not to cause conflict
-      agent.options.splice(agent.options.indexOf(agent.bestOption), 1);
-      agent.bestOption = filterOptions(agent.options);
 
-      const response = {msg: templates.INFORM_INTENT_OK_TEMPLATE};
-      try{ reply(response) } catch{ (err) => console.error(err) }
+    //console.log(msg, res);
+    let response;
+    if(res.change1){ // Other agent needs to change intention
+      //console.log(friendInfo.name + "needs to change intent");
+      response = {msg: templates.INFORM_INTENT_CHANGE_TEMPLATE};
+    }else if(res.change2){
+      //console.log("I will change intent");
+      // Let's update our bestOption not to cause conflict
+      if(agent.bestOption.type == "idle"){ // To change an idle change the target simply
+        while(agent.bestOption.target == msg.intent.target){
+          agent.bestOption.target = getIdleTarget(myBelief);
+        }
+      } else {
+        agent.options.splice(agent.options.indexOf(agent.bestOption), 1);
+        agent.bestOption = filterOptions(agent.options);
+      }
+      response = {msg: templates.INFORM_INTENT_OK_TEMPLATE};
     }else{
-      console.log("Nobody has to change intent")
-      const response = {msg: templates.INFORM_INTENT_OK_TEMPLATE};
-      try{ reply(response) } catch{ (err) => console.error(err) }
+      //console.log("Nobody has to change intent");
+      response = {msg: templates.INFORM_INTENT_OK_TEMPLATE};
     }
+
+    // Here we compute our path and send it to Proposer to reach an agreement on path
+    const path = aStar(myBelief.me, agent.bestOption.target, myBelief.map);
+    if(!path){
+      agent.bestOption.path = [];
+    } else {
+      agent.bestOption.path = path;
+    }
+    //console.log(agent.bestOption)
+
+    response.path = path;
+    response.start = {x: myBelief.me.x, y: myBelief.me.y};
+
+    // Reply to the Proposer
+    try{ reply(response) } catch{ (err) => console.error(err) };
+    // Push best option
+    agent.intentionRevision.push(agent.bestOption);
   }
 });
 

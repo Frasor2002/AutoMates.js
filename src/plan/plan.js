@@ -1,11 +1,12 @@
 import { onlineSolver, PddlProblem } from "@unitn-asa/pddl-client";
 import { myBelief } from "../belief/sensing.js";
-import { aStar } from "../intent/astar.js";
+import { aStar, fromPathToPositions } from "../intent/astar.js";
 import { Intention } from "../intent/intention.js";
 import { client } from "../connection/connection.js";
-import { readFile } from "./utils.js";
+import { readFile, getIdleTarget} from "./utils.js";
 import { envArgs } from "../connection/env.js";
 import { logger } from "../logger.js";
+import { friendInfo } from "../collaboration/comunication.js";
 
 //Get domain for pddl planning
 const domain = await readFile("./src/plan/domain.pddl")
@@ -163,40 +164,86 @@ class PDDLMoveTo extends Plan {
     
     if ( this.stopped ) throw ['stopped']; // If stopped then quit
 
+    const postions = fromPathToPositions({x:myBelief.me.x, y:myBelief.me.y}, path)
+
     // Since its costly to regenerate path till we reach the goal we will keep our path
     // and wait to move until to agent blocks us
-    for(const move of path){
-        if ( this.stopped ) throw ['stopped']; // If stopped then quit
+    for(let i = 0; i < path.length; i++){
+      if ( this.stopped ) throw ['stopped']; // If stopped then quit
 
       // If log is active, log current movement
       if(envArgs.logger){
         logger.logOthers(`Current move: ${JSON.stringify(move)}`, myBelief.time, "frame")
       }
 
-      // First get next position
-      let nextPos = {x:myBelief.me.x, y:myBelief.me.y};
-      switch(move){
-        case "left":{
-          nextPos.x--;
-          break;
-        }
-        case "right":{
-          nextPos.x++;
-          break;
-        }
-        case "up":{
-          nextPos.y++;
-          break;
-        }
-        case "down":{
-          nextPos.y--;
-          break;
-        }
-      };
-
+      // Get nextPos
+      let nextPos = postions[i];
       while(!myBelief.map.isWalkable(nextPos)){ // While agent blocks us we wait
         await new Promise(res => setTimeout(res, myBelief.config.MOVEMENT_DURATION));
         await new Promise(res => setImmediate(res));
+      }
+
+      if ( this.stopped ) throw ['stopped']; // if stopped then quit
+      await client.emitMove(move);
+      if ( this.stopped ) throw ['stopped']; // if stopped then quit
+      await new Promise(res => setImmediate(res));
+    }
+
+    // If we failed to reach target we failed the plan
+    if(myBelief.me.x !== predicate.target.x || myBelief.me.y !== predicate.target.y){
+      throw ["failed"];
+    }
+
+    return true;
+  }
+}
+
+
+class MultiMoveTo extends Plan {
+  /**
+  * Check if this plan can be applied to an intention
+  */
+  static isApplicableTo ( predicate ) {
+    return predicate.type == 'moveTo';
+  }
+
+
+  /**
+   * Execute the plan
+   */
+  async execute ( predicate ) {
+    if ( this.stopped ) throw ['stopped']; // If stopped then quit
+
+    // Take agreed path from predicate
+    const agreedPath = predicate.path;
+    //console.log(agreedPath);
+
+    //console.log(agreedPath, typeof agreedPath)
+    const positions = fromPathToPositions({x:myBelief.me.x, y:myBelief.me.y}, agreedPath);
+    
+    // Since the path was agreed with the other agent we wont change it at each step
+    // Similarly to PDDLMove we will wait if an obstacle is in front of us
+    for(let i = 0; i < agreedPath.length; i++){
+      if(!myBelief.map.isWalkable(myBelief.me)){ // If on other agent path
+        throw ["failed"];
+      }
+
+
+      if ( this.stopped ) throw ['stopped']; // If stopped then quit
+      let move = agreedPath[i];
+
+      // If log is active, log current movement
+      if(envArgs.logger){
+        logger.logOthers(`Current move: ${JSON.stringify(move)}`, myBelief.time, "frame");
+      }
+
+      let nextPos = positions[i];
+      if(myBelief.map.map[nextPos.x][nextPos.y] == -1){ // If agent blocks us
+        if(myBelief.me.name > friendInfo.name){
+          await new Promise(res => setTimeout(res, myBelief.config.MOVEMENT_DURATION));
+        }else {
+          throw ["failed"];
+        }
       }
   
 
@@ -216,6 +263,9 @@ class PDDLMoveTo extends Plan {
 }
 
 
+
+
+
 class PickUp extends Plan {
 
   /**
@@ -232,7 +282,7 @@ class PickUp extends Plan {
   async execute ( predicate ) {
     if ( this.stopped ) throw ['stopped']; // if stopped then quit
     await this.subIntention( {type: "moveTo", target: {x: predicate.target.x, 
-      y: predicate.target.y, entity: "parcel"}} );
+      y: predicate.target.y}, path: predicate.path} );
     if ( this.stopped ) throw ['stopped']; // if stopped then quit
     await client.emitPickup();
     if ( this.stopped ) throw ['stopped']; // if stopped then quit
@@ -259,7 +309,7 @@ class Deliver extends Plan {
   async execute ( predicate ) {
     if ( this.stopped ) throw ['stopped']; // if stopped then quit
     await this.subIntention( {type: "moveTo", target: {x: predicate.target.x, 
-      y: predicate.target.y, entity: "delivery"}}, client );
+      y: predicate.target.y},  path: predicate.path} );
     if ( this.stopped ) throw ['stopped']; // if stopped then quit
     await client.emitPutdown();
     if ( this.stopped ) throw ['stopped']; // if stopped then quit
@@ -282,37 +332,35 @@ class Idle extends Plan {
   async execute ( predicate ) {
     if (this.stopped) throw ['stopped']; // If stopped then quit
 
-    // Get reachable spawn tiles (reachable not considering agents)
-    const spawnTiles = myBelief.map.filterReachableTileLists(myBelief.me, true).spawnTiles;
-
-    // If no reachable spawn tiles, stay put
-    if (spawnTiles.length === 0) {
-      return true;
-    }
-
-    myBelief.map.updateBonus();
-
-    // Sort by score descending and take top n
-    const bestSpawns = spawnTiles
-    .filter(spawn => {
-      if (spawn.x === myBelief.me.x && spawn.y === myBelief.me.y) return false // Not my position
-      return true
-    })
-    .sort((a, b) => b.score + b.bonusScore - a.score - a.bonusScore)
-    .slice(0, 10);
-
-    //console.log(bestSpawns);
-    // Case where we have less bestSpawns, we just use the spawnTiles
-    const candidates = bestSpawns.length > 0 ? bestSpawns : spawnTiles;
-
-    // Random selection of one of the candidates
-    const randomIndex = Math.floor(Math.random() * candidates.length);
-    const target = candidates[randomIndex];
-
+    const target = getIdleTarget(myBelief);
 
     if (this.stopped) throw ['stopped'];
     await this.subIntention({ type: "moveTo", target: {x: target.x, 
-    y: target.y, entity: "spawn"} });
+    y: target.y} });
+    if (this.stopped) throw ['stopped'];
+
+    return true;
+  }
+
+}
+
+
+class MultiIdle extends Plan {
+
+  static isApplicableTo ( predicate ) {
+    return predicate.type == 'idle';
+  }
+
+  async execute ( predicate ) {
+    if (this.stopped) throw ['stopped']; // If stopped then quit
+
+    // We simply forward the agreed path to the MultiMoveTo
+
+    //console.log(predicate)
+
+    if (this.stopped) throw ['stopped'];
+    await this.subIntention({ type: "moveTo", target: {x: predicate.target.x, 
+    y: predicate.target.y},  path: predicate.path });
     if (this.stopped) throw ['stopped'];
 
     return true;
@@ -321,14 +369,21 @@ class Idle extends Plan {
 }
 
 // Add all plans to planLib
-if(envArgs.usePDDL){
+
+// If multiagent we add multi plans
+if(envArgs.mode == "multi"){
+  planLib.push(MultiMoveTo);
+  planLib.push(MultiIdle);
+} else { // Solo agent plans
+  planLib.push(Idle);
+  if(envArgs.usePDDL){
   planLib.push(PDDLMoveTo);
-} else {
+  } else {
   planLib.push(MoveTo);
+}  
 }
 
 planLib.push(PickUp);
 planLib.push(Deliver);
-planLib.push(Idle);
 
 export {planLib};

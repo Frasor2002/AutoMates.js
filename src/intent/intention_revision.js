@@ -98,7 +98,7 @@ class IntentionRevision {
    * @param {*} predicate 
    */
   push ( predicate ) {
-    //console.log( 'To push. Received', predicate );
+    console.log( 'To push. Received', predicate );
 
     // Get the highest priority intent now
     const last = this.#intentionQueue[0];
@@ -109,7 +109,10 @@ class IntentionRevision {
     
     for(let i = 0; i < this.#intentionQueue.length; i++){
       // The intent is found within the queue
-      if(this.#intentionQueue[i].predicate.type === predicate.type && 
+      if(predicate.type == "idle" && this.#intentionQueue[i].predicate.type === predicate.type){
+        found = true;
+      }
+      else if(this.#intentionQueue[i].predicate.type === predicate.type && 
         JSON.stringify(this.#intentionQueue[i].predicate.target) === JSON.stringify(predicate.target)
       ) {
         this.#intentionQueue[i].predicate.priority = predicate.priority;
@@ -123,6 +126,14 @@ class IntentionRevision {
       const intention = new Intention( this, predicate);
       this.#intentionQueue.push(intention);
     }
+
+
+    // Replace quickSort with a stable sort that won't overflow
+    /*this.#intentionQueue.sort((a, b) => {
+      // Handle edge cases
+      if (a.predicate.priority === b.predicate.priority) return 0;
+      return b.predicate.priority - a.predicate.priority; // Descending order
+    });*/
 
     // Sort the intention queue with quickSort
     this.#intentionQueue = quickSort(this.#intentionQueue);
