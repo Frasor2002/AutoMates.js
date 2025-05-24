@@ -98,7 +98,7 @@ class IntentionRevision {
    * @param {*} predicate 
    */
   push ( predicate ) {
-    console.log( 'To push. Received', predicate );
+    //console.log( 'To push. Received', predicate );
 
     // Get the highest priority intent now
     const last = this.#intentionQueue[0];

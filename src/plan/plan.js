@@ -129,14 +129,13 @@ class PDDLMoveTo extends Plan {
 
 
     // Update beliefset of map
-    myBelief.map.updatePDDL();
+    myBelief.map.updatePDDL(myBelief.me);
     // Get map information
     const objectList = [...myBelief.map.mapBeliefSet.objects, agentName];
     const objects = objectList.join(' ');
 
     // Get current agent tile
     const initState = myBelief.map.mapBeliefSet.toPddlString()
-    + ` (me ${agentName})`
     + ` (agent ${agentName})`
     + ` (at ${agentName} ${currentTile})`;
     
@@ -170,6 +169,9 @@ class PDDLMoveTo extends Plan {
     // and wait to move until to agent blocks us
     for(let i = 0; i < path.length; i++){
       if ( this.stopped ) throw ['stopped']; // If stopped then quit
+
+      // Get move
+      let move = path[i];
 
       // If log is active, log current movement
       if(envArgs.logger){
@@ -368,12 +370,141 @@ class MultiIdle extends Plan {
 
 }
 
+class PDDLAlleyway extends Plan {
+
+  static isApplicableTo ( predicate ) {
+    return predicate.type == 'planAlleyway';
+  }
+
+  async execute ( predicate ) {
+    if (this.stopped) throw ['stopped']; // If stopped then quit
+
+    // Check our role either as collector or as deliverer
+    if(predicate.role == "collector"){
+      // Plan the solution
+
+      console.log(predicate.parcelPos)
+      let parcel= predicate.parcelPos;
+
+      // Define important objects
+      // Agents
+      const myAgentName = "me";
+      const friendAgentName = "friend";
+      const parcelName = "p";
+      // Positions
+      const myCurrentTile = `t_${myBelief.me.x}_${myBelief.me.y}`;
+      const friendCurrentTile = `t_${predicate.friendPos.x}_${predicate.friendPos.y}`;
+      const parcelPos = `t_${parcel.x}_${parcel.y}`;
+      const targetPos = `t_${predicate.target.x}_${predicate.target.y}`;
+
+      // Update beliefset of map
+      myBelief.map.updatePDDL(myBelief.me);
+      // Get objects of the problem
+      const objectList = [...myBelief.map.mapBeliefSet.objects, myAgentName, friendAgentName,
+        parcelName];
+      const objects = objectList.join(' ');
+
+      // Set positions on the map
+      const initState = myBelief.map.mapBeliefSet.toPddlString()
+      + ` (agent ${myAgentName})`
+      + ` (at ${myAgentName} ${myCurrentTile})`
+      + ` (agent ${friendAgentName})`
+      + ` (at ${friendAgentName} ${friendCurrentTile})`
+      + ` (parcel ${parcelName})`
+      + ` (at ${parcelName} ${parcelPos})`;
+    
+    // Construct target goal predicate
+    const goal = `and (at ${parcelName} ${targetPos})`;
+
+    
+    // Create problem
+    const pddlProblem = new PddlProblem(
+      'deliveroo',
+      objects,
+      initState,
+      goal
+    );
+
+    const problem = pddlProblem.toPddlString();
+    //console.log(problem)
+    const plan = await onlineSolver(domain, problem);
+    if(!plan){
+      throw ['failed']
+    } 
+    //console.log(plan);
+
+    // Send to other agent
+    //await client.emitSay(friendInfo.id, {msg: "plan", plan: plan});
+
+    for(const move of plan){
+      // Iterate through every move in the plan
+      if(move.args[0] == "ME"){ // If my action
+
+        // If pickup
+        if(move.action == "PICKUP"){
+          // Do pickup
+          if (this.stopped) throw ['stopped'];
+          await client.emitPickup();
+          if (this.stopped) throw ['stopped'];
+
+        } else if(move.action == "PUTDOWN"){
+          // Do putdown
+          if (this.stopped) throw ['stopped'];
+          await client.emitPutdown();
+          if (this.stopped) throw ['stopped'];
+        } else { // Movement action
+          if (this.stopped) throw ['stopped'];
+          await client.emitMove(move.action.toLowerCase());
+          if (this.stopped) throw ['stopped'];
+        }
+      } else { // Friend action
+        const reply = await client.emitAsk(friendInfo.id, {msg: "plan", move: move});
+        console.log(reply)
+        if(reply.msg != "OK"){
+          throw ['failed']
+        }
+      }
+
+
+      await new Promise(res => setImmediate(res));
+    }
+    
+    }else{
+      console.log("MOVE: ", predicate.move)
+      const move = predicate.move;
+      if(move.action == "PICKUP"){
+        // Do pickup
+        if (this.stopped) throw ['stopped'];
+        await client.emitPickup();
+        if (this.stopped) throw ['stopped'];
+
+      } else if(move.action == "PUTDOWN"){
+        // Do putdown
+        if (this.stopped) throw ['stopped'];
+        await client.emitPutdown();
+        if (this.stopped) throw ['stopped'];
+      } else { // Movement action
+        if (this.stopped) throw ['stopped'];
+        await client.emitMove(move.action.toLowerCase());
+        if (this.stopped) throw ['stopped'];
+      }
+      predicate.reply({msg: "OK"})
+    }
+
+    return true;
+  }
+
+}
+
+
+
 // Add all plans to planLib
 
 // If multiagent we add multi plans
 if(envArgs.mode == "multi"){
   planLib.push(MultiMoveTo);
   planLib.push(MultiIdle);
+  planLib.push(PDDLAlleyway);
 } else { // Solo agent plans
   planLib.push(Idle);
   if(envArgs.usePDDL){

@@ -1,7 +1,7 @@
 import { client } from "../connection/connection.js";
 import { myBelief } from "../belief/sensing.js";
 import { simpleEncription, simpleDecription, checkMessage } from "./encription.js";
-import { templates, multiOptionHandling, compareBestOptions, solveAlleyway } from "./utils.js";
+import { templates, multiOptionHandling, compareBestOptions, checkAlleyway, solveAlleyway } from "./utils.js";
 import { agent } from "../agent.js";
 import { filterOptions } from "../intent/utils.js";
 import { aStar } from "../intent/astar.js";
@@ -97,15 +97,8 @@ client.onMsg(async (id, name, msg, reply) => {
     myBelief.merge(msg.state);
 
     // Check if we are in alleyway case
-    const tiles = myBelief.map.filterReachableTileLists(myBelief.me);
-    //console.log(tiles.spawnTiles, tiles.deliveryTiles)
-    //console.log(tiles.spawnTiles.length === 0, tiles.deliveryTiles.length === 0)
-    // Add another check for specific case
-    if((tiles.spawnTiles.length === 0 && tiles.deliveryTiles.length === 1) || 
-    (tiles.deliveryTiles.length === 0 && tiles.spawnTiles.length === 1)){
-      console.log(tiles.spawnTiles, tiles.deliveryTiles)
-      console.log("Alleyway case!")
-      solveAlleyway(agent, myBelief, friendInfo);
+    if(checkAlleyway(myBelief.me, msg.state.me, myBelief)){
+      solveAlleyway(agent, myBelief, {x: msg.state.me.x, y: msg.state.me.y});
     } else { // Normal case
       await multiOptionHandling(agent, myBelief, friendInfo);
     }
@@ -152,6 +145,16 @@ client.onMsg(async (id, name, msg, reply) => {
     // Reply to the Proposer
     try{ reply(response) } catch{ (err) => console.error(err) };
     // Push best option
+    agent.intentionRevision.push(agent.bestOption);
+  }
+  else if(reply && id === friendInfo.id && checkMessage(msg, "plan")){
+    // Deliverer receives an order
+    agent.bestOption = {type: "planAlleyway", role: "deliverer",
+      move:msg.move,
+      reply: reply,
+      priority: 1};
+    
+
     agent.intentionRevision.push(agent.bestOption);
   }
 });

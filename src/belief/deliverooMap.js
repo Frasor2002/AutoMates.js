@@ -318,39 +318,54 @@ class DeliverooMap {
 
   }
 
-  /**Update map beliefset with obstacles and agent positions*/
-  updatePDDL() {
+  /**Update map beliefset with obstacles and agent positions
+   * @param {Object} me my current position
+  */
+  updatePDDL(me) {
     // Reset BeliefSet
     this.mapBeliefSet = new Beliefset();
 
+    // Declare all tiles as tiles on the map
+    //  and declare all relationshipt between tiles
     for (let i = 0; i < this.width; i++) {
       for (let j = 0; j < this.height; j++) {
-        // If not walkable go on
-        if(!this.isWalkable({x:i, y:j})){
+        // Wall continue
+        if(this.originalMap[i][j] == 0){
           continue;
         }
 
+        // Declare current tile as a tile
+        this.mapBeliefSet.declare('tile t_' + i + '_' + j);
+
         // Tile to the right
-        if ((i + 1) < this.width && this.map[i + 1][j] > 0) {
+        if ((i + 1) < this.width && this.originalMap[i + 1][j] > 0) {
           this.mapBeliefSet.declare('right t_' + i + '_' + j + ' t_' + (i + 1) + '_' + j);
         }
 
         // Tile to the left
-        if ((i - 1) >= 0 && this.map[i - 1][j] > 0) {
+        if ((i - 1) >= 0 && this.originalMap[i - 1][j] > 0) {
           this.mapBeliefSet.declare('left t_' + i + '_' + j + ' t_' + (i - 1) + '_' + j);
         }
 
         // Tile up
-        if ((j + 1) < this.height && this.map[i][j + 1] > 0) {
+        if ((j + 1) < this.height && this.originalMap[i][j + 1] > 0) {
           this.mapBeliefSet.declare('up t_' + i + '_' + j + ' t_' + i + '_' + (j + 1));
         }
 
         // Tile down
-        if ((j - 1) >= 0 && this.map[i][j - 1] > 0) {
+        if ((j - 1) >= 0 && this.originalMap[i][j - 1] > 0) {
           this.mapBeliefSet.declare('down t_' + i + '_' + j + ' t_' + i + '_' + (j - 1));
+        }
+
+        // If not walkable declare occupied
+        if(this.map[i][j] == -1){
+          this.mapBeliefSet.declare('occupied t_' + i + '_' + j);
         }
       }
     }
+
+    // Declare current agent tile as occupied
+    this.mapBeliefSet.declare('occupied t_' + me.x + '_' + me.y);
   }
 
   /**

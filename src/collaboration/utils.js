@@ -131,38 +131,104 @@ function compareBestOptions(bo1, bo2){
   return result;
 }
 
+/**Check if the agents are in the alleyway sitation 
+ * @param {Object} me my position
+ * @param {Object} friend friend position
+ * @param {Object} bs belief set  
+*/
+function checkAlleyway(me, friend, bs){
+  // Take all tiles on map
+  const allTiles = bs.map.filterReachableTileLists(me, true);
+  
+  // Take all my reachable tiles
+  const myTiles = bs.map.filterReachableTileLists(me);
+
+  // Take all my friend reachable tiles
+  const friendTiles = bs.map.filterReachableTileLists(friend);
+
+  // Check that there is only one spawn and delivery or we are in another map and just blocked
+  // by an agent
+  if(allTiles.spawnTiles.length > 1 || allTiles.deliveryTiles.length > 1){
+    return false;
+  }
+
+
+  // If we both have access to the same type of tile we are not in an alleyway
+  if(myTiles.spawnTiles.length == friendTiles.spawnTiles.lenght || 
+    myTiles.deliveryTiles.length == friendTiles.deliveryTiles.lenght
+  ){
+    return false;
+  }
+
+  return true
+}
+
+
 
 /**
  * In alleway map we try to deliver parcel with a different strategy
+ * @param {Object} agent agent class
+ * @param {Object} bs belief set
  */
-function solveAlleyway(agent, bs, fi){
+function solveAlleyway(agent, bs, friend){
+  //console.log("Alleyway case")
   // Compute the handover tile in the alleyway
   let handoverTile = {x: 0, y: 0};
 
   const allTiles = bs.map.filterReachableTileLists(bs.me, true);
-  console.log(allTiles)
+  //console.log(allTiles.spawnTiles)
   // Assume alleway can be only vertical or horizontal
   // Case of vertical alleyway
-  if(allTiles.spawnTiles.x == allTiles.deliveryTiles.x){
+  if(allTiles.spawnTiles[0].x == allTiles.deliveryTiles[0].x){
     handoverTile.x = allTiles.spawnTiles[0].x;
     handoverTile.y = Math.round(Math.abs(allTiles.spawnTiles[0].y - allTiles.deliveryTiles[0].y) / 2);
-  } else if(allTiles.spawnTiles.y == allTiles.deliveryTiles.y){ // Horizontal
+  } else if(allTiles.spawnTiles[0].y == allTiles.deliveryTiles[0].y){ // Horizontal
     handoverTile.y = allTiles.spawnTiles[0].y;
     handoverTile.x = Math.round(Math.abs(allTiles.spawnTiles[0].x - allTiles.deliveryTiles[0].x) / 2);
   }
 
-  console.log(handoverTile)
+  //console.log(handoverTile)
   // Understand what is our role
-  // Gatherer or Deliverer?
+  // Collector or Deliverer?
   const tiles = bs.map.filterReachableTileLists(bs.me);
-  if(tiles.spawnTiles.length === 0){
-    // Deliverer
-    console.log("deliver")
+
+  // Clear bestOption
+  agent.bestOption = null;
+  if(tiles.deliveryTiles.length === 0){
+    // Collector
+    //console.log("collector")
+
+    // If a new parcel spawns
+    const p = bs.getParcels().filter(p => (!p.carriedBy));
+    console.log(p)
+    const parcels = bs.getParcels().filter(p => (!p.carriedBy) && p.x != null && p.y != null); // && p.x == allTiles.spawnTiles.x && p.x == allTiles.spawnTiles.y
+    //console.log(parcels.lenght)
+
+    if(parcels.length > 0){
+      // Create an option to plan to solve the alleyway
+      agent.bestOption = {type: "planAlleyway", role: "collector",
+        friendPos: friend,
+        parcelPos: parcels[0],
+        target: allTiles.deliveryTiles[0],
+        priority: 1};
+    } else { // Move to spawning
+      let target = getIdleTarget(bs)
+      agent.bestOption = {type: "idle",
+      path: aStar(bs.me, target, bs.map),
+      target: target,
+      priority: -Infinity};
+    }
+    //console.log(agent.bestOption)
+
+    if(agent.bestOption != null){
+      agent.intentionRevision.push(agent.bestOption);
+    }
   }else{
-    // Gatherer
-    console.log("gatherer")
+    // Deliverer
+    console.log("deliverer")
+    
   }
 }
 
 
-export {templates, multiOptionHandling, compareBestOptions, solveAlleyway};
+export {templates, multiOptionHandling, compareBestOptions,checkAlleyway, solveAlleyway};
