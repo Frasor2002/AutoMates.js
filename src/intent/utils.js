@@ -139,46 +139,5 @@ function filterOptions(options){
 }
 
 
-/**
- * Quicksort implementation for sorting objects by priority (descending order)
- * @param {Array} arr - Array of objects with a priority field
- */
-function quickSort(arr) {
-  // Base case: arrays with 0 or 1 element are already "sorted"
-  if (arr.length <= 1) {
-    return arr;
-  }
 
-  // Choose a pivot (we'll use the middle element)
-  const pivotIndex = Math.floor(arr.length / 2);
-  const pivot = arr[pivotIndex].predicate.priority;
-
-  // Partition the array into three parts
-  const left = [];
-  const right = [];
-  const equal = [];
-
-  for (const element of arr) {
-    const current_priority = element.predicate.priority
-    if(current_priority == -Infinity){
-      right.push(element);
-    }
-    else if (current_priority > pivot) {
-      left.push(element);
-    } else if (current_priority < pivot) {
-      right.push(element);
-    } else {
-      equal.push(element);
-    }
-  }
-
-  // Recursively sort the left and right partitions
-  // Combine results (higher priorities first)
-  return [...quickSort(left), ...equal, ...quickSort(right)];
-}
-
-
-
-
-
-export {priorityPickUp, priorityPutDown, generateOptions, filterOptions, quickSort};
+export {priorityPickUp, priorityPutDown, generateOptions, filterOptions};

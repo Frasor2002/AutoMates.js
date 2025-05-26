@@ -143,7 +143,7 @@ function aStar(start, goal, deliverooMap, original=false){
  */
 function fromPathToPositions(start, path){
   const positions = [];
-  let current = start;
+  let current = { x: start.x, y: start.y };;
 
   for(const move of path){
     // First get next position

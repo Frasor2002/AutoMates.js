@@ -3,7 +3,8 @@ import { myBelief } from "../belief/sensing.js";
 import { agent } from "../agent.js"
 import { envArgs } from "../connection/env.js";
 import { logger } from "../logger.js";
-import { friendInfo, sendState } from "../collaboration/comunication.js";
+import { friendInfo } from "../collaboration/comunication.js";
+import { sendState } from "../collaboration/message.js";
 
 
 /**
@@ -14,8 +15,11 @@ async function optionHandling(){
   if(envArgs.mode == "multi"){
     // Every time agent information is updated we send state
     // Prepare a light object to send to other agent
+    let l = agent.intentionRevision.intentionQueue.length
+
     const myState = {me: myBelief.me, time: myBelief.time, 
-      parcelBelief: myBelief.parcelBelief, agentBelief: myBelief.agentBelief};
+      parcelBelief: myBelief.parcelBelief, agentBelief: myBelief.agentBelief, 
+      intent: l};
     await sendState(friendInfo, myState);
     // Reaction to message in communication.js
   } else {

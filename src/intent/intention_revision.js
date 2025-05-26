@@ -1,6 +1,5 @@
 import { Intention } from "./intention.js";
 import { myBelief } from "../belief/sensing.js";
-import { quickSort } from "./utils.js";
 import { envArgs } from "../connection/env.js";
 import { logger } from "../logger.js";
 
@@ -128,15 +127,12 @@ class IntentionRevision {
     }
 
 
-    // Replace quickSort with a stable sort that won't overflow
-    /*this.#intentionQueue.sort((a, b) => {
+    // For multi agents we implement a easier sort, to avoid overflow
+    this.#intentionQueue.sort((a, b) => {
       // Handle edge cases
       if (a.predicate.priority === b.predicate.priority) return 0;
       return b.predicate.priority - a.predicate.priority; // Descending order
-    });*/
-
-    // Sort the intention queue with quickSort
-    this.#intentionQueue = quickSort(this.#intentionQueue);
+    });
 
     // If a better intent is found we have to stop last and start the new one
     if ((last != null) &&

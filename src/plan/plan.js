@@ -7,6 +7,8 @@ import { readFile, getIdleTarget} from "./utils.js";
 import { envArgs } from "../connection/env.js";
 import { logger } from "../logger.js";
 import { friendInfo } from "../collaboration/comunication.js";
+import { templates } from "../collaboration/utils.js";
+import { checkMessage } from "../collaboration/encription.js";
 
 //Get domain for pddl planning
 const domain = await readFile("./src/plan/domain.pddl")
@@ -214,7 +216,10 @@ class MultiMoveTo extends Plan {
    * Execute the plan
    */
   async execute ( predicate ) {
-    if ( this.stopped ) throw ['stopped']; // If stopped then quit
+    if ( this.stopped ){
+      await client.emitSay(friendInfo.id, {msg: templates.STOP_INTENTION_TEMPLATE})
+      throw ['stopped']; // If stopped then quit
+    } 
 
     // Take agreed path from predicate
     const agreedPath = predicate.path;
@@ -226,12 +231,10 @@ class MultiMoveTo extends Plan {
     // Since the path was agreed with the other agent we wont change it at each step
     // Similarly to PDDLMove we will wait if an obstacle is in front of us
     for(let i = 0; i < agreedPath.length; i++){
-      if(!myBelief.map.isWalkable(myBelief.me)){ // If on other agent path
-        throw ["failed"];
+      if ( this.stopped ){
+        await client.emitSay(friendInfo.id, {msg: templates.STOP_INTENTION_TEMPLATE})
+        throw ['stopped']; // If stopped then quit
       }
-
-
-      if ( this.stopped ) throw ['stopped']; // If stopped then quit
       let move = agreedPath[i];
 
       // If log is active, log current movement
@@ -240,23 +243,36 @@ class MultiMoveTo extends Plan {
       }
 
       let nextPos = positions[i];
-      if(myBelief.map.map[nextPos.x][nextPos.y] == -1){ // If agent blocks us
-        if(myBelief.me.name > friendInfo.name){
-          await new Promise(res => setTimeout(res, myBelief.config.MOVEMENT_DURATION));
-        }else {
-          throw ["failed"];
-        }
+      if(myBelief.map.map[nextPos.x][nextPos.y] == -1 || myBelief.map.map[nextPos.x][nextPos.y] == 0
+        || !myBelief.map.isInBounds(nextPos)
+      ){ // If agent blocks us
+        //console.log("map", myBelief.map.map[nextPos.x][nextPos.y], "prevented")
+        await client.emitSay(friendInfo.id, {msg: templates.STOP_INTENTION_TEMPLATE})
+        throw ["failed"];
       }
-  
+      //console.log(nextPos)
 
-      if ( this.stopped ) throw ['stopped']; // if stopped then quit
-      await client.emitMove(move);
-      if ( this.stopped ) throw ['stopped']; // if stopped then quit
+      if ( this.stopped ){
+        await client.emitSay(friendInfo.id, {msg: templates.STOP_INTENTION_TEMPLATE})
+        throw ['stopped']; // If stopped then quit
+      } 
+      let res = await client.emitMove(move);
+      /*if(!res){
+        console.log(myBelief.me.x, myBelief.me.y, nextPos, "map", myBelief.map.map[nextPos.x][nextPos.y])
+        console.log(move)
+        process.exit(1)
+      }*/
+      if ( this.stopped ){
+        await client.emitSay(friendInfo.id, {msg: templates.STOP_INTENTION_TEMPLATE})
+        throw ['stopped']; // If stopped then quit
+      } 
       await new Promise(res => setImmediate(res));
     }
 
     // If we failed to reach target we failed the plan
-    if(myBelief.me.x !== predicate.target.x || myBelief.me.y !== predicate.target.y){
+    if(myBelief.me.x != predicate.target.x || myBelief.me.y != predicate.target.y){
+      console.log("destination not reached")
+      await client.emitSay(friendInfo.id, {msg: templates.STOP_INTENTION_TEMPLATE})
       throw ["failed"];
     }
 
@@ -458,9 +474,8 @@ class PDDLAlleyway extends Plan {
           if (this.stopped) throw ['stopped'];
         }
       } else { // Friend action
-        const reply = await client.emitAsk(friendInfo.id, {msg: "plan", move: move});
-        console.log(reply)
-        if(reply.msg != "OK"){
+        const reply = await client.emitAsk(friendInfo.id, {msg: templates.ALLEWAY_ACTION_TEMPLATE, move: move});
+        if(!checkMessage(reply, templates.ALLEWAY_RESPONSE_TEMPLATE)){
           throw ['failed']
         }
       }
@@ -470,7 +485,7 @@ class PDDLAlleyway extends Plan {
     }
     
     }else{
-      console.log("MOVE: ", predicate.move)
+      //console.log("MOVE: ", predicate.move)
       const move = predicate.move;
       if(move.action == "PICKUP"){
         // Do pickup
@@ -488,7 +503,7 @@ class PDDLAlleyway extends Plan {
         await client.emitMove(move.action.toLowerCase());
         if (this.stopped) throw ['stopped'];
       }
-      predicate.reply({msg: "OK"})
+      predicate.reply({msg: templates.ALLEWAY_RESPONSE_TEMPLATE})
     }
 
     return true;

@@ -1,7 +1,7 @@
 import { myBelief } from "./belief/sensing.js";
 import {IntentionRevision} from "./intent/intention_revision.js"
 import { optionHandling } from "./intent/options.js";
-import { handshake, friendInfo, sendState} from "./collaboration/comunication.js";
+import { handshake, friendInfo } from "./collaboration/comunication.js";
 import { envArgs } from "./connection/env.js";
 
 class Agent {
@@ -35,10 +35,14 @@ class Agent {
     // Option generation
     let interval = 50;
     if(envArgs.mode=="multi"){
-      interval = 2000;
+      interval = 1000;
     }
     setInterval(optionHandling, interval);
+
+    //setInterval(() => console.log("Penalty", this.belief.me.penalty), 2000);
+
   }
+
 }
 
 // Instantiate agent class
