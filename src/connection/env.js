@@ -14,7 +14,7 @@ const envArgs = {
   usePDDL: process.env.USE_PDDL === "true",
   logger: process.env.LOGGER === "true",
   mode: process.env.MODE || "solo",
-  secretKey: process.env.SECRET_KEY || 5
+  secretKey: Number(process.env.SECRET_KEY) || 5
 };
 
 // Mandatory args

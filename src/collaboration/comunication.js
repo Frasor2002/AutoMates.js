@@ -1,5 +1,5 @@
 import { client } from "../connection/connection.js";
-//import { myBelief } from "../belief/sensing.js";
+import { envArgs } from "../connection/env.js";
 import { agent } from "../agent.js";
 import { simpleEncription, simpleDecription, checkMessage } from "./encription.js";
 import { templates } from "./utils.js";
@@ -15,12 +15,11 @@ let friendInfo = {};
 
 /** Handshake protocol to connect the two agents */
 async function handshake() {
-
   await new Promise(resolve => setTimeout(resolve, 50));
   
   // Broadcast handshake to everyone
   client.emitShout({
-    msg: simpleEncription(templates.HANDSHAKE_START_TEMPLATE),
+    msg: simpleEncription(templates.HANDSHAKE_START_TEMPLATE, envArgs.secretKey),
   });
 
   // Now we wait for next message from other agent
@@ -33,7 +32,7 @@ async function handshake() {
     const msg = data.msg;
 
     if(!msg.safe){ // If message is broadcasted we decrypt it
-      msg.msg = simpleDecription(msg.msg);
+      msg.msg = simpleDecription(msg.msg, envArgs.secretKey);
     }
     
     // Check the message is the one we are waiting for
