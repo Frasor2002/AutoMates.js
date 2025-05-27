@@ -69,7 +69,7 @@ async function multiOptionHandling(agent, bs, fi, msg){
     
     // Depending on reply we decide to change intent or not
     //console.log(reply)
-    if(reply.msg == templates.INFORM_INTENT_CHANGE_TEMPLATE){
+    if(reply.msg == templates.INFORM_INTENT_CHANGE_TEMPLATE && agent.options.length > 1){
       //console.log("I will change my intent")
       // We will take the second best intent
       agent.options.splice(agent.options.indexOf(agent.bestOption), 1);
@@ -106,9 +106,6 @@ function evaluatorResponds(agent,bs,  msg, reply){
   // Synchronize with friend intentions
   if(agent.intentionRevision.intentionQueue.length > 0){
     agent.intentionRevision.intentionQueue[0].stop();
-    if(agent.intentionRevision.intentionQueue.length > 1){ // Clear queue to synch with friend
-      agent.intentionRevision.intentionQueue = [];
-    }
   }
   // Here is the Evaluator that will tell the proposer if the option must be changed or not
   const res = compareBestOptions(msg.intent, agent.bestOption);
