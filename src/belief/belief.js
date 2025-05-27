@@ -135,7 +135,6 @@ class Belief {
       if(!Number.isInteger(a.x) || !Number.isInteger(a.y)){
         const pos1 = {x: Math.ceil(a.x), y: Math.ceil(a.y)}; // Round up coordinates
         const pos2 = {x: Math.trunc(a.x), y: Math.trunc(a.y)}; // Truncate coordinates
-        //console.log("moving", pos1, pos2)
         this.map.updateMap(pos1);
         this.map.updateMap(pos2);
       }else{ // Otherwise agent is still

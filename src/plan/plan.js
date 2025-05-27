@@ -257,8 +257,81 @@ class Deliver extends Plan {
    */
   async execute ( predicate ) {
     if ( this.stopped ) throw ['stopped']; // if stopped then quit
-    await this.subIntention( {type: "moveTo", target: {x: predicate.target.x, 
-      y: predicate.target.y, entity: "delivery"}}, client );
+    /*await this.subIntention( {type: "moveTo", target: {x: predicate.target.x, 
+      y: predicate.target.y, entity: "delivery"}}, client );*/
+    let cx = myBelief.me.x;
+    let cy = myBelief.me.y;
+
+    let isOnTheWay = myBelief.map.deliveryMap[cx][cy].distance > 0;
+    let isCarryingParcels = myBelief.getParcels()
+      .find(val => val.carriedBy == myBelief.me.id) != undefined;
+    let failures = 0;
+
+    while(isOnTheWay && isCarryingParcels){
+      let dirArray = myBelief.map.deliveryMap[cx][cy].direction.slice();
+      let dir = "";
+      
+      do{
+        let idx = Math.floor(dirArray.length * Math.random());
+        console.log(dirArray);
+        console.log(idx);
+        switch(dirArray[idx]){
+
+          case "right":
+            if(myBelief.map.isWalkable({x: cx+1, y: cy})) dir = "right";
+            break;
+
+          case "left":
+            if(myBelief.map.isWalkable({x: cx-1, y: cy})) dir = "left";
+            break;
+
+          case "up":
+            if(myBelief.map.isWalkable({x: cx, y: cy+1})) dir = "up";
+            break;
+
+          case "down":
+            if(myBelief.map.isWalkable({x: cx, y: cy-1})) dir = "down";
+            break;
+        }
+        dirArray.splice(idx,1);
+
+      } while(dir=="" && dirArray.length > 0);
+
+      if(dir==""){
+        failures++;
+        if(failures > 5) break;
+        await new Promise (res => setTimeout(res,1000))
+        console.log("I waited");continue;
+      }
+      console.log(dir);
+      if ( this.stopped ) throw ['stopped']; // if stopped then quit
+      let hasMoved = await client.emitMove(myBelief.map.deliveryMap[cx][cy].direction[0]);
+
+      if(!hasMoved){
+        failures++;
+        if(failures > 5) break;
+        await new Promise (res => setTimeout(res,1000))
+        console.log("I waited");continue;
+      }
+      cx = myBelief.me.x;
+      cy = myBelief.me.y;
+
+      isOnTheWay = myBelief.map.deliveryMap[cx][cy].distance > 0;
+      let prcl = myBelief.getParcels()
+      let z = prcl.find(val => val.carriedBy == myBelief.me.id);
+      //console.log(`What I believe: ${JSON.stringify(prcl)}`)
+      //console.log(z)
+      isCarryingParcels = z != undefined;
+      //console.log(`On the way: ${isOnTheWay}\thasParcels: ${isCarryingParcels}`)
+    }
+
+    if ( !isCarryingParcels ) throw ['failed'];
+
+    if ( failures > 5 ) {await this.subIntention( {type: "moveTo", 
+      target: {x: predicate.target.x, y: predicate.target.y, entity: "delivery"}}, client );
+      console.log("Ritenta, sarai più fortunato")
+    }
+
     if ( this.stopped ) throw ['stopped']; // if stopped then quit
     await client.emitPutdown();
     if ( this.stopped ) throw ['stopped']; // if stopped then quit
@@ -300,7 +373,6 @@ class Idle extends Plan {
     .sort((a, b) => b.score + b.bonusScore - a.score - a.bonusScore)
     .slice(0, 10);
 
-    console.log(bestSpawns);
     // Case where we have less bestSpawns, we just use the spawnTiles
     const candidates = bestSpawns.length > 0 ? bestSpawns : spawnTiles;
 

@@ -28,6 +28,9 @@ class DeliverooMap {
   /** List of location of tiles where parcels spawns*/
   spawnTiles = [];
 
+  /** Map that specifies which delivery tiles the agent should go */
+  deliveryMap = [];
+
   /** Type of map, if a map with lots of green tiles or one with few*/
   spawnType = "";
 
@@ -47,6 +50,7 @@ class DeliverooMap {
     this.originalMap = [];
     this.deliveryTiles = [];
     this.spawnTiles = [];
+    this.deliveryMap = [];
     this.spawnType = "";
     this.mapBeliefSet = new Beliefset();
     this.POD = 0;
@@ -130,6 +134,112 @@ class DeliverooMap {
     // Spawn tiles also need a score to let us know where is best to go during idle
     this.spawnTiles = tiles.filter(t => t.type == 1).map(t => ({ x: t.x, y: t.y, 
       score: this.getSpawnScore(t), lastSeen: 0, bonusScore: 0}));
+  }
+
+  initDeliveryMap(){
+    for(let i = 0; i < this.width; i++){
+
+      this.deliveryMap.push(new Array(this.height));
+      
+      for(let j = 0; j < this.height; j++){
+        this.deliveryMap[i][j] = {direction: [], distance: Infinity}
+      }
+    }
+
+    let queue = [];
+    this.deliveryTiles.forEach( tile => {
+      queue.push({x: tile.x, y: tile.y});
+      this.deliveryMap[tile.x][tile.y].distance = 0;
+    })
+
+    while(queue.length > 0){
+      let {x, y}= queue.shift();
+
+      let currx = x -1;
+      let curry = y;
+
+      // In the case agents are already around, we use original map
+      if(this.isWalkable({x: currx, y: curry},true)){
+
+        if(this.deliveryMap[currx][curry].distance > this.deliveryMap[x][y].distance + 1){
+          this.deliveryMap[currx][curry].direction = ["right"];
+          this.deliveryMap[currx][curry].distance = this.deliveryMap[x][y].distance + 1;
+          queue.push({x: currx, y: curry});
+
+        } else if(this.deliveryMap[currx][curry].distance == this.deliveryMap[x][y].distance + 1){
+          this.deliveryMap[currx][curry].direction.push("right")
+        }
+
+      }
+
+      currx = x;
+      curry = y - 1;
+      if(this.isWalkable({x: currx, y: curry},true)){
+
+        if(this.deliveryMap[currx][curry].distance > this.deliveryMap[x][y].distance + 1){
+          this.deliveryMap[currx][curry].direction = ["up"];
+          this.deliveryMap[currx][curry].distance = this.deliveryMap[x][y].distance + 1;
+          queue.push({x: currx, y: curry});
+          
+        } else if(this.deliveryMap[currx][curry].distance == this.deliveryMap[x][y].distance + 1){
+          this.deliveryMap[currx][curry].direction.push("up")
+        }
+
+      }
+
+      currx = x;
+      curry = y + 1;
+      if(this.isWalkable({x: currx, y: curry},true)){
+
+        if(this.deliveryMap[currx][curry].distance > this.deliveryMap[x][y].distance + 1){
+          this.deliveryMap[currx][curry].direction = ["down"];
+          this.deliveryMap[currx][curry].distance = this.deliveryMap[x][y].distance + 1;
+          queue.push({x: currx, y: curry});
+          
+        } else if(this.deliveryMap[currx][curry].distance == this.deliveryMap[x][y].distance + 1){
+          this.deliveryMap[currx][curry].direction.push("down")
+        }
+
+      }
+
+      currx = x + 1;
+      curry = y;
+      if(this.isWalkable({x: currx, y: curry},true)){
+
+        if(this.deliveryMap[currx][curry].distance > this.deliveryMap[x][y].distance + 1){
+          this.deliveryMap[currx][curry].direction = ["left"];
+          this.deliveryMap[currx][curry].distance = this.deliveryMap[x][y].distance + 1;
+          queue.push({x: currx, y: curry});
+          
+        } else if(this.deliveryMap[currx][curry].distance == this.deliveryMap[x][y].distance + 1){
+          this.deliveryMap[currx][curry].direction.push("left")
+        }
+
+      }
+    }
+
+    let str = "";
+    for(let i=this.width-1; i>=0; i--){
+      for(let j=0; j<this.height; j++){
+      
+        if(this.deliveryMap[j][i].direction.length < 1){
+          str += "x ";
+        } else if(this.deliveryMap[j][i].direction[0] == "right"){
+          str += "> ";
+        } else if(this.deliveryMap[j][i].direction[0] == "left"){
+          str += "< ";
+        } else if(this.deliveryMap[j][i].direction[0] == "up"){
+          str += "^ ";
+        } else if(this.deliveryMap[j][i].direction[0] == "down"){
+          str += "v ";
+        } else {
+          str += "x ";
+        }
+      }
+      str += `\n`
+    }
+    str += `\n`
+    console.log(str);
   }
 
   /**Get spawn tile by how many spawnable tiles are nearby
@@ -380,32 +490,15 @@ class DeliverooMap {
     }
 
     let diff = this.spawnTiles[max].lastSeen - this.spawnTiles[min].lastSeen;
-    console.log(`MAX: ${this.spawnTiles[max].lastSeen}, MIN: ${this.spawnTiles[min].lastSeen}`)
-
-    let minBonus = 1000;
-    let maxBonus = 0;
 
     for(let i in this.spawnTiles) {
-      //console.log(JSON.stringify(this.spawnTiles[i]))
       let idiff = this.spawnTiles[max].lastSeen - this.spawnTiles[i].lastSeen ;
       //15 is heuristic
 
       let tempPOD = this.POD == Infinity ? this.originalMap.length : this.POD;
       let bonus = (2 * Math.pow(tempPOD,2) + 2 * tempPOD + 1) * (idiff/diff);
       this.spawnTiles[i].bonusScore = Math.floor(bonus)
-
-      if(minBonus > this.spawnTiles[i].bonusScore){
-        minBonus = this.spawnTiles[i].bonusScore;
-      }
-
-      if(maxBonus < this.spawnTiles[i].bonusScore){
-        maxBonus = this.spawnTiles[i].bonusScore;
-      }
     }
-    
-    console.log(`MAX: ${maxBonus}, MIN: ${minBonus}`)
-
-    return `DIFF: ${diff}`
   }
 
 
