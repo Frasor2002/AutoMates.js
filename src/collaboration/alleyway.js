@@ -41,6 +41,7 @@ function checkAlleyway(me, friend, bs){
  * @param {Object} bs belief set
  */
 function solveAlleyway(agent, bs, friend){
+   const allTiles = bs.map.filterReachableTileLists(bs.me, true);
   // Understand what is our role
   // Collector or Deliverer?
   const tiles = bs.map.filterReachableTileLists(bs.me);
