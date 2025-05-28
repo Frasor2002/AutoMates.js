@@ -313,7 +313,7 @@ class PickUp extends Plan {
 
 
 
-class Deliver extends Plan {
+class SoloDeliver extends Plan {
   /**
   * Check if this plan can be applied to an intention
   */
@@ -326,8 +326,82 @@ class Deliver extends Plan {
    */
   async execute ( predicate ) {
     if ( this.stopped ) throw ['stopped']; // if stopped then quit
+ 
+    let cx = myBelief.me.x;
+    let cy = myBelief.me.y;
+
+    let isOnTheWay = myBelief.map.deliveryMap[cx][cy].distance > 0;
+    let isCarryingParcels = myBelief.getParcels()
+      .find(val => val.carriedBy == myBelief.me.id) != undefined;
+    let failures = 0;
+
+    while(isOnTheWay && isCarryingParcels){
+      let dirArray = myBelief.map.deliveryMap[cx][cy].direction.slice();
+      let dir = "";
+      
+      do{
+        let idx = Math.floor(dirArray.length * Math.random());
+        console.log(dirArray);
+        console.log(idx);
+        switch(dirArray[idx]){
+
+          case "right":
+            if(myBelief.map.isWalkable({x: cx+1, y: cy})) dir = "right";
+            break;
+
+          case "left":
+            if(myBelief.map.isWalkable({x: cx-1, y: cy})) dir = "left";
+            break;
+
+          case "up":
+            if(myBelief.map.isWalkable({x: cx, y: cy+1})) dir = "up";
+            break;
+
+          case "down":
+            if(myBelief.map.isWalkable({x: cx, y: cy-1})) dir = "down";
+            break;
+        }
+        dirArray.splice(idx,1);
+
+      } while(dir=="" && dirArray.length > 0);
+
+      if(dir==""){
+        failures++;
+        if(failures > 5) break;
+        await new Promise (res => setTimeout(res,1000))
+        console.log("I waited");continue;
+      }
+      console.log(dir);
+      if ( this.stopped ) throw ['stopped']; // if stopped then quit
+      let hasMoved = await client.emitMove(myBelief.map.deliveryMap[cx][cy].direction[0]);
+
+      if(!hasMoved){
+        failures++;
+        if(failures > 5) break;
+        await new Promise (res => setTimeout(res,1000))
+        console.log("I waited");continue;
+      }
+      cx = myBelief.me.x;
+      cy = myBelief.me.y;
+
+      isOnTheWay = myBelief.map.deliveryMap[cx][cy].distance > 0;
+      let prcl = myBelief.getParcels()
+      let z = prcl.find(val => val.carriedBy == myBelief.me.id);
+      //console.log(`What I believe: ${JSON.stringify(prcl)}`)
+      //console.log(z)
+      isCarryingParcels = z != undefined;
+      //console.log(`On the way: ${isOnTheWay}\thasParcels: ${isCarryingParcels}`)
+    }
+
+    if ( !isCarryingParcels ) throw ['failed'];
+
+    if ( failures > 5 ) {await this.subIntention( {type: "moveTo", 
+      target: {x: predicate.target.x, y: predicate.target.y, entity: "delivery"}}, client );
+      // Retry with standard move using A*
+    }
+
     await this.subIntention( {type: "moveTo", target: {x: predicate.target.x, 
-      y: predicate.target.y},  path: predicate.path} );
+      y: predicate.target.y}} );
     if ( this.stopped ) throw ['stopped']; // if stopped then quit
     await client.emitPutdown();
     if ( this.stopped ) throw ['stopped']; // if stopped then quit
@@ -335,6 +409,37 @@ class Deliver extends Plan {
     return true;
   }
 }
+
+
+
+class MultiDeliver extends Plan {
+
+  /**
+   * Check if this plan can be applied to an intention
+   */
+  static isApplicableTo ( predicate ) {
+    return predicate.type == 'deliver';
+  }
+
+
+  /**
+   * Execute the plan
+   */
+  async execute ( predicate ) {
+    if ( this.stopped ) throw ['stopped']; // if stopped then quit
+    await this.subIntention( {type: "moveTo", target: {x: predicate.target.x, 
+      y: predicate.target.y}, path: predicate.path} );
+    if ( this.stopped ) throw ['stopped']; // if stopped then quit
+    await client.emitPutdown();
+    if ( this.stopped ) throw ['stopped']; // if stopped then quit
+
+    return true;
+  }
+}
+
+
+
+
 
 class Idle extends Plan {
   /**
@@ -361,6 +466,7 @@ class Idle extends Plan {
   }
 
 }
+
 
 
 class MultiIdle extends Plan {
@@ -520,8 +626,10 @@ if(envArgs.mode == "multi"){
   planLib.push(MultiMoveTo);
   planLib.push(MultiIdle);
   planLib.push(PDDLAlleyway);
+  planLib.push(MultiDeliver);
 } else { // Solo agent plans
   planLib.push(Idle);
+  planLib.push(SoloDeliver);
   if(envArgs.usePDDL){
   planLib.push(PDDLMoveTo);
   } else {
@@ -530,6 +638,6 @@ if(envArgs.mode == "multi"){
 }
 
 planLib.push(PickUp);
-planLib.push(Deliver);
+
 
 export {planLib};
