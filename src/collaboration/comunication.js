@@ -1,54 +1,25 @@
 import { client } from "../connection/connection.js";
-import { myBelief } from "../belief/sensing.js";
+import { envArgs } from "../connection/env.js";
+import { agent } from "../agent.js";
 import { simpleEncription, simpleDecription, checkMessage } from "./encription.js";
+import { templates } from "./utils.js";
+import { delivererActs } from "./alleyway.js";
+import { handleInformMsg, evaluatorResponds } from "./multioption.js";
+import { receiveMessage } from "./message.js";
+import { myBelief } from "../belief/sensing.js";
 
 // Save the data of our teammate
 let friendInfo = {};
 
 
-// Handshake messages templates
-const HANDSHAKE_START_TEMPLATE = "HANDSHAKE start";
-const HANDSHAKE_ACK_TEMPLATE = "HANDSHAKE acknowledge";
-// Inform message templates
-const INFORM_TEMPLATE = "INFORM";
-
-/**Send mental state of the agent with a common format to teammate ù
- * @param {Object} friendInfo information on teammate
- * @param {Object} state mental state of the agent
-*/
-async function sendState(friendInfo, state){
-  await client.emitSay(friendInfo.id, {
-    msg: "INFORM",
-    state: state,
-    time: myBelief.time.ms
-  });
-}
-
-
-/**Create a promise in order to receive message from other agent
- * @returns Promise containing message received
- */
-function receiveMessage(){
-  return new Promise((res) => {
-    client.onMsg((id, name, msg) => {
-      res({
-        id: id,
-        name: name,
-        msg: msg
-      });
-    });
-  });
-}
-
 
 /** Handshake protocol to connect the two agents */
 async function handshake() {
-
   await new Promise(resolve => setTimeout(resolve, 50));
   
   // Broadcast handshake to everyone
   client.emitShout({
-    msg: simpleEncription(HANDSHAKE_START_TEMPLATE),
+    msg: simpleEncription(templates.HANDSHAKE_START_TEMPLATE, envArgs.secretKey),
   });
 
   // Now we wait for next message from other agent
@@ -61,21 +32,21 @@ async function handshake() {
     const msg = data.msg;
 
     if(!msg.safe){ // If message is broadcasted we decrypt it
-      msg.msg = simpleDecription(msg.msg);
+      msg.msg = simpleDecription(msg.msg, envArgs.secretKey);
     }
     
     // Check the message is the one we are waiting for
-    if(checkMessage(msg, HANDSHAKE_START_TEMPLATE)){
+    if(checkMessage(msg, templates.HANDSHAKE_START_TEMPLATE)){
       receivedFirst = true;
       // Save friendId
       friendInfo = senderInfo;
       // Acknowledgement response
       // Set safe since we do not need encryption
       await client.emitSay(friendInfo.id, {
-        msg: HANDSHAKE_ACK_TEMPLATE,
+        msg: templates.HANDSHAKE_ACK_TEMPLATE,
         safe: true
       });
-    } else if(checkMessage(msg, HANDSHAKE_ACK_TEMPLATE)){
+    } else if(checkMessage(msg, templates.HANDSHAKE_ACK_TEMPLATE)){
       receivedFirst = true;
       friendInfo = senderInfo;
     }
@@ -85,22 +56,30 @@ async function handshake() {
 
 
 // Listen to messages from the teammate here
-client.onMsg((id, name, msg, reply) => {
-  // Check message is from teammate and if its a correct INFORM
-  if(id === friendInfo.id && checkMessage(msg, INFORM_TEMPLATE)){
-    console.log("INFORM from", name);
-    console.log(msg);
-    // Here we merge bs
-    // Compute options for me and other agent
-    // compare best options and decide how to coordinate
-    // if both idle ok
-    // if both deliver if the delivery is different ok
-    // if both delivery and the delivery is the same change deliver for lower priority (if same sum name characters and higher changes)
-    // if both pickup different parcel ok
-    // if both pickup same decide on priority if same decide on sum of name
-    // if no spawn or no delivery => alleway logic
+client.onMsg(async (id, name, msg, reply) => {
+  if(id === friendInfo.id && name == friendInfo.name){
+    // Check message is a correct INFORM state
+    if(checkMessage(msg, templates.INFORM_STATE_TEMPLATE)){
+      await handleInformMsg(agent, myBelief, msg, friendInfo);
+    } 
+    // Message INFORM intent
+    else if(reply && checkMessage(msg, templates.INFORM_INTENT_TEMPLATE)){
+      // Evaluator responds to proposer
+      evaluatorResponds(agent,myBelief, msg, reply);
+    }
+    // Message that tells that other agent stopped intention, need to stop and find a new path
+    else if(checkMessage(msg, templates.STOP_INTENTION_TEMPLATE)){
+      if(agent.intentionRevision.intentionQueue.length > 0){
+        agent.intentionRevision.intentionQueue[0].stop();
+      }
+    }
+    // Respond to message for alleyway
+    else if(reply && checkMessage(msg, templates.ALLEWAY_ACTION_TEMPLATE)){
+      // Deliverer receives an order
+      delivererActs(agent, msg, reply);
+    }
   }
+  
 });
 
-
-export {handshake, friendInfo, sendState};
+export {handshake, friendInfo};

@@ -1,3 +1,4 @@
+import { agent } from '../agent.js';
 import { DeliverooMap } from './deliverooMap.js'
 import { stringToMillisec } from './utils.js';
 
@@ -20,7 +21,7 @@ class Belief {
   // Map agentId -> agents states
   agentBelief = new Map();
 
-  //Map parcelId -> parcel states
+  // Map parcelId -> parcel states
   parcelBelief = new Map();
 
   /**Init the Belief class */
@@ -87,18 +88,18 @@ class Belief {
       // Add parcels with timestamp
     }
 
-    // Update unseen parcels
+    // Update parcels belief
     for(const parcel of this.parcelBelief.values()){
       if(!updatedParcel.has(parcel.id)) {
         const timePassed = currTime - parcel.timestamp;
         parcel.reward = parcel.reward - (timePassed / this.config.PARCEL_DECADING_INTERVAL);
-
         /* Keep them in memory only if
         * - timePassed is lower than 10 seconds
-        * - reward is bigger than 5*/
-        if(timePassed > (10 * 1000) && parcel.reward > 5){
-          p.timestamp = currTime;
-          updatedParcel.set(p.id, p);
+        * - reward is bigger than 5
+        * - last time we saw it it was not carried (assume it was delivered)*/
+        if(timePassed < (10 * 1000) && parcel.reward > 5 && !parcel.carriedBy){
+          parcel.timestamp = currTime;
+          updatedParcel.set(parcel.id, parcel);
         }
       }
     }
@@ -110,27 +111,13 @@ class Belief {
     }
   }
 
-  /**
-   * Update other enemy agents
-   * @param {Array} sensed_agents 
-   */
-  updateAgents(sensed_agents){
+  /**Draw on the map object the current and next position of the agents */
+  setAgentsPositions(){
     // Prepare a clean map to set position of agents
     this.map.clearMap();
-    for(const a of sensed_agents){
-      //Add timestamp
-      a.timestamp = this.time.ms;
 
-      // If agent isn't already saved, save it
-      if(!this.agentBelief.has(a.id)){
-        this.agentBelief.set(a.id, a);
-      } else {
-        // Update old agent state
-        this.agentBelief.set(a.id, a);
-      }
-    }
     // Loop for map update
-    for(const a of  Array.from(this.agentBelief.values())){
+    for(const a of  this.getAgents()){
       // If coordinates are float agent is moving
       if(!Number.isInteger(a.x) || !Number.isInteger(a.y)){
         const pos1 = {x: Math.ceil(a.x), y: Math.ceil(a.y)}; // Round up coordinates
@@ -142,6 +129,33 @@ class Belief {
         this.map.updateMap(pos);
       }
     }
+
+  }
+
+
+  /**
+   * Update other enemy agents
+   * @param {Array} sensed_agents 
+   */
+  updateAgents(sensed_agents){
+    const currTime = this.time.ms;
+
+    // Update agents with sensing information
+    for(const a of sensed_agents){
+      //Add timestamp
+      a.timestamp = currTime;
+      this.agentBelief.set(a.id, a);      
+    }
+
+    // Loop to remove very old agents from belief (may have disconnected)
+    for(const a of this.agentBelief.values()){
+      if(currTime - a.timestamp > 1000 * this.config.MOVEMENT_DURATION){
+        this.agentBelief.delete(a.id);
+      }
+    }
+
+    // Loop for map update
+    this.setAgentsPositions();
   }
 
   /**
@@ -154,11 +168,45 @@ class Belief {
 
   /**
    * Get list of all agents in our belief
-   * @returns 
+   * @returns return agents in our beliefset
    */
   getAgents(){
-    return Array.from(this.agentBelief.values()).filter(a => {
-      return this.time.ms - a.timestamp < this.config.MOVEMENT_DURATION});
+    return Array.from(this.agentBelief.values());
+  }
+
+  /**
+   * Merget data in teammate belief into our own belief
+   * @param {Object} bs beliefset data to merge with 
+   */
+  merge(bs){
+    // First we can add the other agent information into our belief
+    // This also avoids bumping into him later
+    bs.me.timestamp = bs.time.ms;
+    this.agentBelief.set(bs.me.id, bs.me);
+
+    // Merge parcel belief
+    bs.parcelBelief = new Map(Object.entries(bs.parcelBelief));
+    for(const p of Array.from(bs.parcelBelief.values())){
+      // If this agent data isn't in our belief or the data is newer we update
+      if(!this.parcelBelief.has(p.id) || p.timestamp > this.parcelBelief.get(p.id).timestamp){
+        this.parcelBelief.set(p.id, p);
+      }
+    }
+
+    // Merge agent belief
+    bs.agentBelief =  new Map(Object.entries(bs.agentBelief));
+    for(const a of Array.from(bs.agentBelief.values())){
+      // Skip ourselves
+      if(a.id == this.me.id){ continue; }
+
+      // If agent data isn't into belief or the new belief has newer data
+      if(!this.agentBelief.has(a.id) || a.timestamp > this.agentBelief.get(a.id).timestamp){
+        this.agentBelief.set(a.id, a);
+      }
+    }
+
+    // Update map
+    this.setAgentsPositions();
   }
 
 

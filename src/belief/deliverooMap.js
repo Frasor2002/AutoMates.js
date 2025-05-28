@@ -326,7 +326,7 @@ class DeliverooMap {
   clearMap() {
     for (let i = 0; i < this.width; i++) {
       for (let j = 0; j < this.height; j++) {
-        if (this.map[i][j] == -1) { // If we had an agent here, reset
+        if (this.map[i][j] == -1 || this.map[i][j] == -2) { // If we had an agent here, reset
           this.map[i][j] = this.originalMap[i][j];
         }
       }
@@ -334,13 +334,14 @@ class DeliverooMap {
   }
 
   /**
-   * Set position of enemy agent on the map given a position
+   * Set position of enemy agent or obstacle on the map given a position
    * @param {Object} pos 
+   * @param {number} [value=-1] value to put in the cell
    */
-  updateMap(pos) {
+  updateMap(pos, value=-1) {
     //Check if position is valid (in bounds)
     if(this.isInBounds(pos)){
-      this.map[pos.x][pos.y] = -1;
+      this.map[pos.x][pos.y] = value;
     }
   }
   
@@ -427,42 +428,63 @@ class DeliverooMap {
 
   }
 
-  /**Update map beliefset with obstacles and agent positions*/
-  updatePDDL() {
+  /**Update map beliefset with obstacles and agent positions
+   * @param {Object} me my current position
+  */
+  updatePDDL(me) {
     // Reset BeliefSet
     this.mapBeliefSet = new Beliefset();
 
+    // Declare all tiles as tiles on the map
+    //  and declare all relationshipt between tiles
     for (let i = 0; i < this.width; i++) {
       for (let j = 0; j < this.height; j++) {
-        // If not walkable go on
-        if(!this.isWalkable({x:i, y:j})){
+        // Wall continue
+        if(this.originalMap[i][j] == 0){
           continue;
         }
 
+        // Declare current tile as a tile
+        this.mapBeliefSet.declare('tile t_' + i + '_' + j);
+
         // Tile to the right
-        if ((i + 1) < this.width && this.map[i + 1][j] > 0) {
+        if ((i + 1) < this.width && this.originalMap[i + 1][j] > 0) {
           this.mapBeliefSet.declare('right t_' + i + '_' + j + ' t_' + (i + 1) + '_' + j);
         }
 
         // Tile to the left
-        if ((i - 1) >= 0 && this.map[i - 1][j] > 0) {
+        if ((i - 1) >= 0 && this.originalMap[i - 1][j] > 0) {
           this.mapBeliefSet.declare('left t_' + i + '_' + j + ' t_' + (i - 1) + '_' + j);
         }
 
         // Tile up
-        if ((j + 1) < this.height && this.map[i][j + 1] > 0) {
+        if ((j + 1) < this.height && this.originalMap[i][j + 1] > 0) {
           this.mapBeliefSet.declare('up t_' + i + '_' + j + ' t_' + i + '_' + (j + 1));
         }
 
         // Tile down
-        if ((j - 1) >= 0 && this.map[i][j - 1] > 0) {
+        if ((j - 1) >= 0 && this.originalMap[i][j - 1] > 0) {
           this.mapBeliefSet.declare('down t_' + i + '_' + j + ' t_' + i + '_' + (j - 1));
+        }
+
+        // If not walkable declare occupied
+        if(this.map[i][j] == -1){
+          this.mapBeliefSet.declare('occupied t_' + i + '_' + j);
         }
       }
     }
+
+    // Declare current agent tile as occupied
+    this.mapBeliefSet.declare('occupied t_' + me.x + '_' + me.y);
   }
 
-  /** idk laugh */
+  /**
+   * Update the spawn score
+   * @param {*} time 
+   * @param {*} x 
+   * @param {*} y 
+   * @returns 
+   */
   updateSpawnLastSeen(time,x,y){
     if(x%1!==0 || y%1!==0){return}
 
@@ -475,7 +497,10 @@ class DeliverooMap {
     }
   }
 
-  //** why the fuck this doesn't get called */
+  /**
+   * Update bonus computation of tiles
+   * @returns 
+   */
   updateBonus(){
     let max = 0;
     let min = 0;
@@ -490,6 +515,10 @@ class DeliverooMap {
     }
 
     let diff = this.spawnTiles[max].lastSeen - this.spawnTiles[min].lastSeen;
+    //console.log(`MAX: ${this.spawnTiles[max].lastSeen}, MIN: ${this.spawnTiles[min].lastSeen}`)
+
+    let minBonus = 1000;
+    let maxBonus = 0;
 
     for(let i in this.spawnTiles) {
       let idiff = this.spawnTiles[max].lastSeen - this.spawnTiles[i].lastSeen ;
@@ -499,6 +528,10 @@ class DeliverooMap {
       let bonus = (2 * Math.pow(tempPOD,2) + 2 * tempPOD + 1) * (idiff/diff);
       this.spawnTiles[i].bonusScore = Math.floor(bonus)
     }
+    
+    //console.log(`MAX: ${maxBonus}, MIN: ${minBonus}`)
+
+    return `DIFF: ${diff}`
   }
 
 
