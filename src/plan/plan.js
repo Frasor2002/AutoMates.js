@@ -60,6 +60,133 @@ class Plan {
 
 }
 
+class RandomMove extends Plan {
+  /**
+  * Check if this plan can be applied to an intention
+  */
+  static isApplicableTo ( predicate ) {
+    return predicate.type == 'random';
+  }
+
+  async execute ( predicate ) {
+    let lastMove = "";
+    let failure = 0;
+    let cx = myBelief.me.x;
+    let cy = myBelief.me.y;
+    let moves = 0;
+
+    while(moves < myBelief.map.POD){
+      if(this.stopped) throw ['stopped'];
+
+      let directions = [
+        {move: "right", x: 1, y: 0},
+        {move: "left", x: -1, y: 0},
+        {move: "up", x: 0, y: 1},
+        {move: "down", x: 0, y: -1}
+      ]
+
+      directions = directions.filter((x)=>x.move!=lastMove);
+      let tentative;
+
+      while(directions.length > 0 && tentative == undefined){
+        let idx = Math.floor(directions.length * Math.random());
+        if(myBelief.map.isWalkable({x: cx + directions[idx].x, y: cy + directions[idx].y})){
+          tentative = directions[idx];
+        } else {
+          directions.splice(idx,1);
+        }
+      }
+
+      if(tentative !== undefined){
+        failure++;
+        if(failure>10) throw ['failed'];
+        await new Promise (res => setTimeout(res,50));
+      }
+
+      let hasMoved = await client.emitMove(tentative.move);
+      
+      if(!hasMoved){
+        failure++;
+        if(failure>10) throw ['failed'];
+        await new Promise (res => setTimeout(res,50));
+      } else{
+        moves++;
+      }
+
+      cx = myBelief.me.x;
+      cy = myBelief.me.y;
+      
+    }
+    console.log("HO FINITO UN TURNO RANDOM")
+  }
+}
+
+class HeuristicsMoveTo extends Plan {
+  /**
+  * Check if this plan can be applied to an intention
+  */
+  static isApplicableTo ( predicate ) {
+    return predicate.type == 'heuristics';
+  }
+
+
+  /**
+   * Execute the plan
+   */
+  async execute ( predicate ) {
+    let failure = 0
+
+    // Get a path to avoid obstacles now
+    let path = aStar(myBelief.me, predicate.target, myBelief.map, true);
+
+    // Blocked path
+    if(path === false){
+      throw ["failed"];
+    }
+
+    let cx = myBelief.me.x;
+    let cy = myBelief.me.y;
+
+    // While not arrived
+    while(cx !== predicate.target.x || cy !== predicate.target.y || path.length != 0) {
+      if ( this.stopped ) throw ['stopped']; // If stopped then quit
+
+      let move = path.shift();
+
+      // If logger active, log current movement
+      if(envArgs.logger){
+        logger.logOthers(`Current move: ${JSON.stringify(move)}`, myBelief.time, "frame")
+      }
+
+      let canMove = false;
+
+      if(
+        (move == "right" && myBelief.map.isWalkable({x: cx+1, y: cy})) ||
+        (move == "left" && myBelief.map.isWalkable({x: cx-1, y: cy})) ||
+        (move == "up" && myBelief.map.isWalkable({x: cx, y: cy+1})) ||
+        (move == "down" && myBelief.map.isWalkable({x: cx, y: cy-1}))
+      ) {
+        canMove = true;
+      }
+      
+      if(!canMove)failure++;
+      if(failure > 10) break; 
+
+      let result = await client.emitMove(move);
+      if(!result) failure++;
+      if(failure > 10) break;
+
+      if ( this.stopped ) throw ['stopped']; // If stopped then quit
+      await new Promise(res => setImmediate(res));
+    }
+
+    if(failure > 10){
+      return await this.subIntention({type: "random"});
+    }
+    else return true;
+  }
+}
+
 
 class MoveTo extends Plan {
   /**
@@ -74,6 +201,7 @@ class MoveTo extends Plan {
    * Execute the plan
    */
   async execute ( predicate ) {
+    let failure = 0
     // While not arrived
     while(myBelief.me.x !== predicate.target.x || myBelief.me.y !== predicate.target.y)
     {
@@ -85,8 +213,10 @@ class MoveTo extends Plan {
       
       // Blocked path
       if(path === false){
-        throw ["failed"];
-
+        failure = 10;
+        break;
+        //throw ["failed"];
+        //do heuristics
       }
 
 
@@ -100,12 +230,20 @@ class MoveTo extends Plan {
 
       // Move agent
       if ( this.stopped ) throw ['stopped']; // If stopped then quit
-      await client.emitMove(move);
+      let result = await client.emitMove(move);
+
+      if(!result) failure++;
+      if(failure > 10) break;
+
       if ( this.stopped ) throw ['stopped']; // If stopped then quit
       await new Promise(res => setImmediate(res));
     }
-    
-    return true;
+
+    if(failure > 10){
+      return await this.subIntention({type: "heuristics", target: {x: predicate.target.x, 
+      y: predicate.target.y}});
+    }
+    else return true;
   }
 }
 
@@ -302,8 +440,9 @@ class PickUp extends Plan {
     await this.subIntention( {type: "moveTo", target: {x: predicate.target.x, 
       y: predicate.target.y}, path: predicate.path} );
     if ( this.stopped ) throw ['stopped']; // if stopped then quit
-    await client.emitPickup();
-    if ( this.stopped ) throw ['stopped']; // if stopped then quit
+    let arr = await client.emitPickup();
+    if (arr.length != 0) throw ['failed'];
+    if ( this.stopped) throw ['stopped']; // if stopped then quit
 
     return true;
   }
@@ -338,11 +477,11 @@ class SoloDeliver extends Plan {
     while(isOnTheWay && isCarryingParcels){
       let dirArray = myBelief.map.deliveryMap[cx][cy].direction.slice();
       let dir = "";
+      //console.log(dirArray)
       
       do{
         let idx = Math.floor(dirArray.length * Math.random());
-        console.log(dirArray);
-        console.log(idx);
+        
         switch(dirArray[idx]){
 
           case "right":
@@ -367,19 +506,19 @@ class SoloDeliver extends Plan {
 
       if(dir==""){
         failures++;
-        if(failures > 5) break;
-        await new Promise (res => setTimeout(res,1000))
-        console.log("I waited");continue;
+        if(failures > 10) break;
+        await new Promise (res => setTimeout(res,50))
+        console.log("I waited, no choices");continue;
       }
-      console.log(dir);
+      //console.log(`Chosen: ${dir}`);
       if ( this.stopped ) throw ['stopped']; // if stopped then quit
-      let hasMoved = await client.emitMove(myBelief.map.deliveryMap[cx][cy].direction[0]);
+      let hasMoved = await client.emitMove(dir);
 
       if(!hasMoved){
         failures++;
-        if(failures > 5) break;
-        await new Promise (res => setTimeout(res,1000))
-        console.log("I waited");continue;
+        if(failures > 10) break;
+        await new Promise (res => setTimeout(res,50));
+        console.log("I waited, failed");continue;
       }
       cx = myBelief.me.x;
       cy = myBelief.me.y;
@@ -395,7 +534,7 @@ class SoloDeliver extends Plan {
 
     if ( !isCarryingParcels ) throw ['failed'];
 
-    if ( failures > 5 ) {await this.subIntention( {type: "moveTo", 
+    if ( failures > 10 ) {await this.subIntention( {type: "moveTo", 
       target: {x: predicate.target.x, y: predicate.target.y, entity: "delivery"}}, client );
       // Retry with standard move using A*
     }
@@ -456,6 +595,7 @@ class Idle extends Plan {
     if (this.stopped) throw ['stopped']; // If stopped then quit
 
     const target = getIdleTarget(myBelief);
+    console.log(`Target: ${JSON.stringify(target)}`)
 
     if (this.stopped) throw ['stopped'];
     await this.subIntention({ type: "moveTo", target: {x: target.x, 
@@ -634,6 +774,8 @@ if(envArgs.mode == "multi"){
   planLib.push(PDDLMoveTo);
   } else {
   planLib.push(MoveTo);
+  planLib.push(HeuristicsMoveTo);
+  planLib.push(RandomMove);
 }  
 }
 
