@@ -89,20 +89,20 @@ class Belief {
     }
 
     // Update parcels belief
-    for(const parcel of this.parcelBelief.values()){
-      if(!updatedParcel.has(parcel.id)) {
-        const timePassed = currTime - parcel.timestamp;
-        parcel.reward = parcel.reward - (timePassed / this.config.PARCEL_DECADING_INTERVAL);
-        /* Keep them in memory only if
-        * - timePassed is lower than 10 seconds
-        * - reward is bigger than 5
-        * - last time we saw it it was not carried (assume it was delivered)*/
-        if(timePassed < (10 * 1000) && parcel.reward > 5 && !parcel.carriedBy){
-          parcel.timestamp = currTime;
-          updatedParcel.set(parcel.id, parcel);
-        }
-      }
-    }
+    //for(const parcel of this.parcelBelief.values()){
+    //  if(!updatedParcel.has(parcel.id)) {
+    //    const timePassed = currTime - parcel.timestamp;
+    //    parcel.reward = parcel.reward - (timePassed / this.config.PARCEL_DECADING_INTERVAL);
+    //    /* Keep them in memory only if
+    //    * - timePassed is lower than 10 seconds
+    //    * - reward is bigger than 5
+    //    * - last time we saw it it was not carried (assume it was delivered)*/
+    //    if(timePassed < (10 * 1000) && parcel.reward > 5 && !parcel.carriedBy){
+    //      parcel.timestamp = currTime;
+    //      updatedParcel.set(parcel.id, parcel);
+    //    }
+    //  }
+    //}
 
     // Reset beliefs and add updated parcels
     this.parcelBelief = new Map();
@@ -143,16 +143,17 @@ class Belief {
     // Update agents with sensing information
     for(const a of sensed_agents){
       //Add timestamp
+      this.agentBelief = new Map();
       a.timestamp = currTime;
       this.agentBelief.set(a.id, a);      
     }
 
     // Loop to remove very old agents from belief (may have disconnected)
-    for(const a of this.agentBelief.values()){
-      if(currTime - a.timestamp > 1000 * this.config.MOVEMENT_DURATION){
-        this.agentBelief.delete(a.id);
-      }
-    }
+    //for(const a of this.agentBelief.values()){
+    //  if(currTime - a.timestamp > 1000 * this.config.MOVEMENT_DURATION){
+    //    this.agentBelief.delete(a.id);
+    //  }
+    //}
 
     // Loop for map update
     this.setAgentsPositions();
