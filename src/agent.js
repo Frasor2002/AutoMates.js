@@ -35,7 +35,7 @@ class Agent {
     // Option generation
     let interval = 50;
     if(envArgs.mode=="multi"){
-      interval = 100;
+      interval = 1000;
     }
     setInterval(optionHandling, interval);
 

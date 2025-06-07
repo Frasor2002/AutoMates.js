@@ -5,7 +5,6 @@ import { aStar } from '../intent/astar.js';
 import { getIdleTarget } from "../plan/utils.js";
 import { templates } from './utils.js';
 import { checkAlleyway, solveAlleyway } from './alleyway.js';
-import { myBelief } from '../belief/sensing.js';
 
 
 /**
@@ -45,7 +44,6 @@ async function multiOptionHandling(agent, bs, fi, msg){
 
   // First we generate our options from the belief set
   agent.options = generateOptions(bs); // This are only options of solo case we may have different in multi
-  //console.log(agent.options);
 
   // Since an agreement between paths must be reached, decide before the target of our idle
   for(let o of agent.options){
@@ -66,32 +64,33 @@ async function multiOptionHandling(agent, bs, fi, msg){
   ){
     const myBestOption = {msg: templates.INFORM_INTENT_TEMPLATE, intent: agent.bestOption};
     const reply = await client.emitAsk(fi.id, myBestOption);
-    
-    // Depending on reply we decide to change intent or not
-    //console.log(reply)
-    if(reply.msg == templates.INFORM_INTENT_CHANGE_TEMPLATE && agent.options.length > 1){
-      //console.log("I will change my intent")
-      // We will take the second best intent
-      agent.options.splice(agent.options.indexOf(agent.bestOption), 1);
-      agent.bestOption = filterOptions(agent.options);
+    if(reply !== "timeout"){
+      // Depending on reply we decide to change intent or not
+      //console.log(reply)
+      if(reply.msg == templates.INFORM_INTENT_CHANGE_TEMPLATE && agent.options.length > 1){
+        //console.log("I will change my intent")
+        // We will take the second best intent
+        agent.options.splice(agent.options.indexOf(agent.bestOption), 1);
+        agent.bestOption = filterOptions(agent.options);
 
-    }
+      }
 
-    // We have to create a path in agreement with the one that we are given
-    if(!reply.path){
-      reply.path = [];
+      // We have to create a path in agreement with the one that we are given
+      if(!reply.path){
+        reply.path = [];
+      }
+      const agreedPath = createAgreedPath(bs.me, reply.start, reply.path, 
+        agent.bestOption.target, bs);
+      if(agreedPath.length == 0){
+        agent.bestOption.target = {x: bs.me.x, y: bs.me.y}
+        agent.bestOption.type = "moveTo"
+      }
+      agent.bestOption.path = agreedPath;
+      // Push best option
+      //console.log("Proposer best:", agent.bestOption.path)
+      //console.log(agent.bestOption)
+      agent.intentionRevision.push(agent.bestOption);
     }
-    const agreedPath = createAgreedPath(bs.me, reply.start, reply.path, 
-      agent.bestOption.target, bs);
-    if(agreedPath.length == 0){
-      agent.bestOption.target = {x: bs.me.x, y: bs.me.y}
-      agent.bestOption.type = "moveTo"
-    }
-    agent.bestOption.path = agreedPath;
-    // Push best option
-    //console.log("Proposer best:", agent.bestOption.path)
-    //console.log(agent.bestOption)
-    agent.intentionRevision.push(agent.bestOption);
   }
 }
 
