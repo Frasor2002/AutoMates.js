@@ -3,7 +3,7 @@ import fs from "fs";
 /**
  * Function to read a file for PDDL
  * @param {*} path 
- * @returns 
+ * @returns data in file
  */
 function readFile ( path ) {
   return new Promise( (res, rej) => {
@@ -19,7 +19,7 @@ function readFile ( path ) {
 function getIdleTarget(bs){
   // Get reachable spawn tiles (reachable not considering agents)
     const spawnTiles = bs.map.filterReachableTileLists(bs.me).spawnTiles;
-    console.log(spawnTiles.length)
+    //console.log(spawnTiles.length)
 
     // If no reachable spawn tiles, we move in any direction we can
     if (spawnTiles.length === 0) {
@@ -32,12 +32,10 @@ function getIdleTarget(bs){
       possiblePos = new Map(Object.entries(possiblePos));
       for(const p of Array.from(possiblePos.values())){
         if(bs.map.isWalkable(p)){
-          console.log("move idk");
           return p;
         }
       }
       // Else stay put
-      console.log("cannot move");
       return {x: bs.me.x, y: bs.me.y};
     }
 

@@ -36,7 +36,7 @@ class Belief {
 
   /**
    * Method to update the configuration property
-   * @param {Object} config 
+   * @param {Object} config configuration object
    */
   updateConfig(config) {
     this.config.PARCELS_GENERATION_INTERVAL = stringToMillisec(config.PARCELS_GENERATION_INTERVAL);
@@ -56,9 +56,10 @@ class Belief {
   }
 
   /**Function to update the reference to current agent
-   * @param {Object} me 
+   * @param {Object} me object with agent info
    */
   updateMe(me, time){
+    // Update personal information
     this.me.id = me.id;
     this.me.name = me.name;
     this.me.teamId = me.teamId;
@@ -68,12 +69,13 @@ class Belief {
     this.me.score = me.score;
     this.me.penalty = me.penalty;
 
+    // Monitor time inside the game
     this.time = time;
   }
 
   /**
    * Update the parcel mapping
-   * @param {Array} sensed_parcels 
+   * @param {Array} sensed_parcels sensed parcels
    */
   updateParcels(sensed_parcels){
     //Take the current time
@@ -161,7 +163,7 @@ class Belief {
 
   /**
    * Get a list of all parcel in our belief
-   * @returns 
+   * @returns array of parcels in beliefset
    */
   getParcels(){
     return Array.from(this.parcelBelief.values());
@@ -211,7 +213,7 @@ class Belief {
   }
 
 
-  /** Print belief of the agent clearly*/
+  /** Print belief of the agent*/
   printBelief() {
     console.log(this.config);
     console.log(this.me);

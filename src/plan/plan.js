@@ -60,6 +60,10 @@ class Plan {
 
 }
 
+
+// Different moves to enhance single agent
+// - RandomMove
+// - HeuristicMove
 class RandomMove extends Plan {
   /**
   * Check if this plan can be applied to an intention
@@ -117,7 +121,6 @@ class RandomMove extends Plan {
       cy = myBelief.me.y;
       
     }
-    console.log("HO FINITO UN TURNO RANDOM")
   }
 }
 
@@ -215,8 +218,6 @@ class MoveTo extends Plan {
       if(path === false){
         failure = 10;
         break;
-        //throw ["failed"];
-        //do heuristics
       }
 
 
@@ -361,9 +362,7 @@ class MultiMoveTo extends Plan {
 
     // Take agreed path from predicate
     const agreedPath = predicate.path;
-    //console.log(agreedPath);
 
-    //console.log(agreedPath, typeof agreedPath)
     const positions = fromPathToPositions({x:myBelief.me.x, y:myBelief.me.y}, agreedPath);
     
     // Since the path was agreed with the other agent we wont change it at each step
@@ -384,22 +383,16 @@ class MultiMoveTo extends Plan {
       if(myBelief.map.map[nextPos.x][nextPos.y] == -1 || myBelief.map.map[nextPos.x][nextPos.y] == 0
         || !myBelief.map.isInBounds(nextPos)
       ){ // If agent blocks us
-        //console.log("map", myBelief.map.map[nextPos.x][nextPos.y], "prevented")
         await client.emitSay(friendInfo.id, {msg: templates.STOP_INTENTION_TEMPLATE})
         throw ["failed"];
       }
-      //console.log(nextPos)
 
       if ( this.stopped ){
         await client.emitSay(friendInfo.id, {msg: templates.STOP_INTENTION_TEMPLATE})
         throw ['stopped']; // If stopped then quit
       } 
-      let res = await client.emitMove(move);
-      /*if(!res){
-        console.log(myBelief.me.x, myBelief.me.y, nextPos, "map", myBelief.map.map[nextPos.x][nextPos.y])
-        console.log(move)
-        process.exit(1)
-      }*/
+      await client.emitMove(move);
+      
       if ( this.stopped ){
         await client.emitSay(friendInfo.id, {msg: templates.STOP_INTENTION_TEMPLATE})
         throw ['stopped']; // If stopped then quit
@@ -409,7 +402,7 @@ class MultiMoveTo extends Plan {
 
     // If we failed to reach target we failed the plan
     if(myBelief.me.x != predicate.target.x || myBelief.me.y != predicate.target.y){
-      console.log("destination not reached")
+      //console.log("destination not reached")
       await client.emitSay(friendInfo.id, {msg: templates.STOP_INTENTION_TEMPLATE})
       throw ["failed"];
     }
@@ -476,9 +469,7 @@ class SoloDeliver extends Plan {
 
     while(isOnTheWay && isCarryingParcels){
       let dirArray = myBelief.map.deliveryMap[cx][cy].direction.slice();
-      let dir = "";
-      //console.log(dirArray)
-      
+      let dir = "";      
       do{
         let idx = Math.floor(dirArray.length * Math.random());
         
@@ -508,9 +499,8 @@ class SoloDeliver extends Plan {
         failures++;
         if(failures > 10) break;
         await new Promise (res => setTimeout(res,50))
-        console.log("I waited, no choices");continue;
+        //console.log("I waited, no choices");continue;
       }
-      //console.log(`Chosen: ${dir}`);
       if ( this.stopped ) throw ['stopped']; // if stopped then quit
       let hasMoved = await client.emitMove(dir);
 
@@ -518,7 +508,7 @@ class SoloDeliver extends Plan {
         failures++;
         if(failures > 10) break;
         await new Promise (res => setTimeout(res,50));
-        console.log("I waited, failed");continue;
+        //console.log("I waited, failed");continue;
       }
       cx = myBelief.me.x;
       cy = myBelief.me.y;
@@ -527,9 +517,8 @@ class SoloDeliver extends Plan {
       let prcl = myBelief.getParcels()
       let z = prcl.find(val => val.carriedBy == myBelief.me.id);
       //console.log(`What I believe: ${JSON.stringify(prcl)}`)
-      //console.log(z)
+      
       isCarryingParcels = z != undefined;
-      //console.log(`On the way: ${isOnTheWay}\thasParcels: ${isCarryingParcels}`)
     }
 
     if ( !isCarryingParcels ) throw ['failed'];
@@ -595,7 +584,7 @@ class Idle extends Plan {
     if (this.stopped) throw ['stopped']; // If stopped then quit
 
     const target = getIdleTarget(myBelief);
-    console.log(`Target: ${JSON.stringify(target)}`)
+    //console.log(`Target: ${JSON.stringify(target)}`)
 
     if (this.stopped) throw ['stopped'];
     await this.subIntention({ type: "moveTo", target: {x: target.x, 
@@ -645,7 +634,6 @@ class PDDLAlleyway extends Plan {
     if(predicate.role == "collector"){
       // Plan the solution
 
-      console.log(predicate.parcelPos)
       let parcel= predicate.parcelPos;
 
       // Define important objects
@@ -770,7 +758,7 @@ if(envArgs.mode == "multi"){
 } else { // Solo agent plans
   planLib.push(Idle);
   planLib.push(SoloDeliver);
-  if(envArgs.usePDDL){
+  if(envArgs.usePDDL){ // Solo PDDL
   planLib.push(PDDLMoveTo);
   } else {
   planLib.push(MoveTo);

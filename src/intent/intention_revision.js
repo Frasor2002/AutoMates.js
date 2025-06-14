@@ -127,7 +127,7 @@ class IntentionRevision {
     }
 
 
-    // For multi agents we implement a easier sort, to avoid overflow
+    // For multi agents we implement a simple sort
     this.#intentionQueue.sort((a, b) => {
       // Handle edge cases
       if (a.predicate.priority === b.predicate.priority) return 0;

@@ -51,8 +51,6 @@ function solveAlleyway(agent, bs, friend){
   if(tiles.deliveryTiles.length === 0){
     // Collector
     // If a new parcel spawns
-    const p = bs.getParcels().filter(p => (!p.carriedBy));
-    console.log(p)
     const parcels = bs.getParcels().filter(p => (!p.carriedBy) && p.x != null && p.y != null); // && p.x == allTiles.spawnTiles.x && p.x == allTiles.spawnTiles.y
 
     if(parcels.length > 0){

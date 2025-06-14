@@ -11,6 +11,7 @@ class DeliverooMap {
 
   /** Matrix that will contain the state of map of the game.
    * The values in the cells will be:
+   * -2 -> Path of the other agent in multiagent case
    * -1 -> Occupied by an agent
    * 0 -> Non-Walkable
    * 1 -> Spawn tile
@@ -57,7 +58,7 @@ class DeliverooMap {
   }
 
   /**Check a position is within map bounds 
-   * @param {Object} pos 
+   * @param {Object} pos position
   */
   isInBounds(pos) {
     return pos.x >= 0 && pos.x < this.width && 
@@ -136,6 +137,7 @@ class DeliverooMap {
       score: this.getSpawnScore(t), lastSeen: 0, bonusScore: 0}));
   }
 
+  /** Initialize the delivery map for smart single agent delivery */
   initDeliveryMap(){
     for(let i = 0; i < this.width; i++){
 
@@ -239,7 +241,6 @@ class DeliverooMap {
       str += `\n`
     }
     str += `\n`
-    console.log(str);
   }
 
   /**Get spawn tile by how many spawnable tiles are nearby
@@ -499,7 +500,7 @@ class DeliverooMap {
 
   /**
    * Update bonus computation of tiles
-   * @returns 
+   * @returns bonus for tiles
    */
   updateBonus(){
     let max = 0;
@@ -515,10 +516,7 @@ class DeliverooMap {
     }
 
     let diff = this.spawnTiles[max].lastSeen - this.spawnTiles[min].lastSeen;
-    //console.log(`MAX: ${this.spawnTiles[max].lastSeen}, MIN: ${this.spawnTiles[min].lastSeen}`)
 
-    let minBonus = 1000;
-    let maxBonus = 0;
 
     for(let i in this.spawnTiles) {
       let idiff = this.spawnTiles[max].lastSeen - this.spawnTiles[i].lastSeen ;
@@ -529,7 +527,6 @@ class DeliverooMap {
       this.spawnTiles[i].bonusScore = Math.floor(bonus)
     }
     
-    //console.log(`MAX: ${maxBonus}, MIN: ${minBonus}`)
 
     return `DIFF: ${diff}`
   }
